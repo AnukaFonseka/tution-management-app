@@ -103,7 +103,7 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Welcome back! Here's your tuition center overview.</p>
+        <p className="text-gray-600">Welcome back! Here&apos;s your tuition center overview.</p>
       </div>
 
       {/* Stats Grid */}
@@ -155,7 +155,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Calendar className="w-5 h-5 mr-2" />
-              Today's Classes ({getDayName(new Date().getDay())})
+              Today&apos;s Classes ({getDayName(new Date().getDay())})
             </CardTitle>
           </CardHeader>
           <CardContent>
