@@ -5,10 +5,10 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Clock, Users, BookOpen } from 'lucide-react'
-import { DAYS_OF_WEEK, formatTime, formatDuration } from '@/lib/utils'
+import { DAYS_OF_WEEK, formatTime, formatDuration, getGradeLabels } from '@/lib/utils'
 
 export default function SchedulePage() {
-  const [classes, setClasses] = useState([])
+  const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -18,19 +18,47 @@ export default function SchedulePage() {
 
   const fetchSchedule = async () => {
     try {
-      const { data, error } = await supabase
-        .from('classes')
+      // First get class schedules with class data
+      const { data: schedulesData, error: schedulesError } = await supabase
+        .from('class_schedules')
         .select(`
           *,
-          student_classes(
-            students(name)
+          classes!inner(
+            id,
+            name,
+            grades,
+            class_type,
+            fee,
+            subject_ids,
+            student_classes(
+              students(name)
+            )
           )
         `)
         .order('day_of_week')
         .order('start_time')
 
-      if (error) throw error
-      setClasses(data || [])
+      if (schedulesError) throw schedulesError
+
+      // Get all subject data
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('id, name')
+
+      if (subjectsError) throw subjectsError
+
+      // Merge subject data with schedules
+      const schedulesWithSubjects = schedulesData.map(schedule => ({
+        ...schedule,
+        classes: {
+          ...schedule.classes,
+          subjects: schedule.classes.subject_ids?.map(subjectId => 
+            subjectsData.find(subject => subject.id === subjectId)
+          ).filter(Boolean) || []
+        }
+      }))
+
+      setSchedules(schedulesWithSubjects || [])
     } catch (err) {
       setError(err.message)
     } finally {
@@ -38,16 +66,28 @@ export default function SchedulePage() {
     }
   }
 
-  const groupClassesByDay = () => {
+  const groupSchedulesByDay = () => {
     const grouped = {}
     DAYS_OF_WEEK.forEach(day => {
-      grouped[day.value] = classes.filter(cls => cls.day_of_week === day.value)
+      grouped[day.value] = schedules.filter(schedule => schedule.day_of_week === day.value)
     })
     return grouped
   }
 
-  const getStudentCount = (classItem) => {
-    return classItem.student_classes?.length || 0
+  const getStudentCount = (classData) => {
+    return classData.student_classes?.length || 0
+  }
+
+  const getTotalStats = () => {
+    const totalSchedules = schedules.length
+    const totalStudents = schedules.reduce((total, schedule) => 
+      total + getStudentCount(schedule.classes), 0)
+    const totalDuration = schedules.reduce((total, schedule) => 
+      total + schedule.duration, 0)
+    const totalRevenue = schedules.reduce((total, schedule) => 
+      total + (schedule.classes.fee * getStudentCount(schedule.classes)), 0)
+    
+    return { totalSchedules, totalStudents, totalDuration, totalRevenue }
   }
 
   if (loading) {
@@ -58,7 +98,8 @@ export default function SchedulePage() {
     )
   }
 
-  const classesGroupedByDay = groupClassesByDay()
+  const schedulesGroupedByDay = groupSchedulesByDay()
+  const stats = getTotalStats()
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -73,12 +114,12 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {classes.length === 0 ? (
+      {schedules.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Calendar className="w-12 h-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No classes scheduled</h3>
-            <p className="text-gray-600">Create some classes to see them in the schedule</p>
+            <p className="text-gray-600">Create some classes and schedules to see them here</p>
           </CardContent>
         </Card>
       ) : (
@@ -91,67 +132,81 @@ export default function SchedulePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {classesGroupedByDay[day.value].length === 0 ? (
+                {schedulesGroupedByDay[day.value].length === 0 ? (
                   <p className="text-center text-gray-500 text-sm py-4">
                     No classes
                   </p>
                 ) : (
-                  classesGroupedByDay[day.value].map((classItem) => (
-                    <div
-                      key={classItem.id}
-                      className="p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      <div className="space-y-2">
-                        <div>
-                          <h4 className="font-medium text-blue-900">
-                            {classItem.name}
-                          </h4>
-                          <p className="text-xs text-blue-700">
-                            Grade {classItem.grade}
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center text-xs text-blue-600">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {formatTime(classItem.start_time)}
-                        </div>
-                        
-                        <div className="flex items-center text-xs text-blue-600">
-                          <BookOpen className="w-3 h-3 mr-1" />
-                          {formatDuration(classItem.duration)}
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center text-xs text-blue-600">
-                            <Users className="w-3 h-3 mr-1" />
-                            {getStudentCount(classItem)} students
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            Rs. {classItem.fee}
-                          </Badge>
-                        </div>
-                        
-                        {/* Student names if any */}
-                        {classItem.student_classes && classItem.student_classes.length > 0 && (
-                          <div className="border-t border-blue-200 pt-2 mt-2">
-                            <p className="text-xs text-blue-600 mb-1">Students:</p>
-                            <div className="space-y-1">
-                              {classItem.student_classes.slice(0, 3).map((enrollment, index) => (
-                                <p key={index} className="text-xs text-blue-700">
-                                  {enrollment.students?.name}
-                                </p>
-                              ))}
-                              {classItem.student_classes.length > 3 && (
-                                <p className="text-xs text-blue-600 italic">
-                                  +{classItem.student_classes.length - 3} more
-                                </p>
-                              )}
+                  schedulesGroupedByDay[day.value].map((schedule) => {
+                    const classData = schedule.classes
+                    return (
+                      <div
+                        key={schedule.id}
+                        className="p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <div className="space-y-2">
+                          <div>
+                            <h4 className="font-medium text-blue-900">
+                              {classData.name}
+                            </h4>
+                            <div className="flex items-center gap-2 text-xs text-blue-700">
+                              <span>{getGradeLabels(classData.grades).join(', ')}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {classData.class_type}
+                              </Badge>
                             </div>
                           </div>
-                        )}
+                          
+                          <div className="flex items-center text-xs text-blue-600">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {formatTime(schedule.start_time)}
+                          </div>
+                          
+                          <div className="flex items-center text-xs text-blue-600">
+                            <BookOpen className="w-3 h-3 mr-1" />
+                            {formatDuration(schedule.duration)}
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center text-xs text-blue-600">
+                              <Users className="w-3 h-3 mr-1" />
+                              {getStudentCount(classData)} students
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              Rs. {classData.fee}
+                            </Badge>
+                          </div>
+                          
+                          {/* Subject names */}
+                          {classData.subjects && classData.subjects.length > 0 && (
+                            <div className="text-xs text-blue-600">
+                              <span className="font-medium">Subjects: </span>
+                              {classData.subjects.map(subject => subject.name).join(', ')}
+                            </div>
+                          )}
+                          
+                          {/* Student names if any */}
+                          {classData.student_classes && classData.student_classes.length > 0 && (
+                            <div className="border-t border-blue-200 pt-2 mt-2">
+                              <p className="text-xs text-blue-600 mb-1">Students:</p>
+                              <div className="space-y-1">
+                                {classData.student_classes.slice(0, 3).map((enrollment, index) => (
+                                  <p key={index} className="text-xs text-blue-700">
+                                    {enrollment.students?.name}
+                                  </p>
+                                ))}
+                                {classData.student_classes.length > 3 && (
+                                  <p className="text-xs text-blue-600 italic">
+                                    +{classData.student_classes.length - 3} more
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </CardContent>
             </Card>
@@ -160,7 +215,7 @@ export default function SchedulePage() {
       )}
 
       {/* Summary Stats */}
-      {classes.length > 0 && (
+      {schedules.length > 0 && (
         <Card className="mt-8">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -172,28 +227,28 @@ export default function SchedulePage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <h3 className="text-2xl font-bold text-blue-600">
-                  {classes.length}
+                  {stats.totalSchedules}
                 </h3>
-                <p className="text-sm text-blue-600">Total Classes</p>
+                <p className="text-sm text-blue-600">Total Class Sessions</p>
               </div>
               
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <h3 className="text-2xl font-bold text-green-600">
-                  {classes.reduce((total, cls) => total + getStudentCount(cls), 0)}
+                  {stats.totalStudents}
                 </h3>
                 <p className="text-sm text-green-600">Total Enrollments</p>
               </div>
               
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <h3 className="text-2xl font-bold text-purple-600">
-                  {classes.reduce((total, cls) => total + cls.duration, 0)} min
+                  {stats.totalDuration} min
                 </h3>
                 <p className="text-sm text-purple-600">Weekly Teaching Time</p>
               </div>
               
               <div className="text-center p-4 bg-yellow-50 rounded-lg">
                 <h3 className="text-2xl font-bold text-yellow-600">
-                  Rs. {classes.reduce((total, cls) => total + (cls.fee * getStudentCount(cls)), 0)}
+                  Rs. {stats.totalRevenue}
                 </h3>
                 <p className="text-sm text-yellow-600">Potential Monthly Revenue</p>
               </div>

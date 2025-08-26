@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Edit, Trash2, Users, Calendar, Clock, DollarSign, ArrowLeft } from 'lucide-react'
-import { getDayName, formatTime, formatDuration } from '@/lib/utils'
+import { getDayName, formatTime, formatDuration, renderClassSchedules } from '@/lib/utils'
 
 export default function ClassDetailsPage() {
   const params = useParams()
@@ -29,7 +29,15 @@ export default function ClassDetailsPage() {
       // Get class details
       const { data: classInfo, error: classError } = await supabase
         .from('classes')
-        .select('*')
+        .select(`
+          *,
+          class_schedules (
+            id,
+            day_of_week,
+            start_time,
+            duration
+          )
+          `)
         .eq('id', params.id)
         .single()
 
@@ -146,12 +154,12 @@ export default function ClassDetailsPage() {
               <div className="flex items-center">
                 <Calendar className="w-5 h-5 text-gray-400 mr-3" />
                 <div>
-                  <p className="font-medium">Schedule</p>
-                  <p className="text-sm text-gray-600">{getDayName(classData.day_of_week)}</p>
+                  <p className="font-medium">Schedules</p>
+                  <p className="text-sm text-gray-600 flex flex-col">{renderClassSchedules(classData.class_schedules)}</p>
                 </div>
               </div>
 
-              <div className="flex items-center">
+              {/* <div className="flex items-center">
                 <Clock className="w-5 h-5 text-gray-400 mr-3" />
                 <div>
                   <p className="font-medium">Time</p>
@@ -159,7 +167,7 @@ export default function ClassDetailsPage() {
                     {formatTime(classData.start_time)} ({formatDuration(classData.duration)})
                   </p>
                 </div>
-              </div>
+              </div> */}
 
               <div className="flex items-center">
                 <DollarSign className="w-5 h-5 text-gray-400 mr-3" />

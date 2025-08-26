@@ -19,14 +19,33 @@ export default function EditClassPage() {
 
   const fetchClassData = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch class data
+      const { data: classInfo, error: classError } = await supabase
         .from('classes')
         .select('*')
         .eq('id', params.id)
         .single()
 
-      if (error) throw error
-      setClassData(data)
+      if (classError) throw classError
+
+      // Fetch class schedules
+      const { data: schedules, error: schedulesError } = await supabase
+        .from('class_schedules')
+        .select('*')
+        .eq('class_id', params.id)
+        .order('day_of_week')
+
+      if (schedulesError) throw schedulesError
+
+      // Combine class data with schedules
+      const combinedData = {
+        ...classInfo,
+        schedules: schedules && schedules.length > 0 ? schedules : [
+          { day_of_week: 1, start_time: '', duration: 60 }
+        ]
+      }
+
+      setClassData(combinedData)
     } catch (err) {
       setError(err.message)
     } finally {
