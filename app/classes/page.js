@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Edit, Trash2, Users, Calendar, Clock } from 'lucide-react'
-import { getDayName, formatTime, formatDuration } from '@/lib/utils'
+import { getDayName, formatTime, formatDuration, renderClassSchedules } from '@/lib/utils'
 
 export default function ClassesPage() {
   const [classes, setClasses] = useState([])
@@ -24,7 +24,13 @@ export default function ClassesPage() {
         .from('classes')
         .select(`
           *,
-          student_classes(count)
+          student_classes(count),
+          class_schedules (
+            id,
+            day_of_week,
+            start_time,
+            duration
+          )
         `)
         .order('day_of_week')
         .order('start_time')
@@ -108,7 +114,7 @@ export default function ClassesPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-lg">{classItem.name}</CardTitle>
-                    <p className="text-sm text-gray-600">Grade {classItem.grade}</p>
+                    <p className="text-sm text-gray-600">Grade {classItem.grades}</p>
                   </div>
                   <Badge variant="outline">
                     Rs. {classItem.fee}
@@ -119,12 +125,14 @@ export default function ClassesPage() {
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center text-sm text-gray-600">
                     <Calendar className="w-4 h-4 mr-2" />
-                    {getDayName(classItem.day_of_week)}
+                    <div className='flex flex-col'>
+                    {renderClassSchedules(classItem.class_schedules)}
+                    </div>
                   </div>
-                  <div className="flex items-center text-sm text-gray-600">
+                  {/* <div className="flex items-center text-sm text-gray-600">
                     <Clock className="w-4 h-4 mr-2" />
                     {formatTime(classItem.start_time)} ({formatDuration(classItem.duration)})
-                  </div>
+                  </div> */}
                   <div className="flex items-center text-sm text-gray-600">
                     <Users className="w-4 h-4 mr-2" />
                     {classItem.student_classes?.[0]?.count || 0} students enrolled
