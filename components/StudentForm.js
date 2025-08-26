@@ -6,50 +6,98 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { studentSchema } from '@/lib/validations'
 import { supabase } from '@/lib/supabase'
-import { generateMonthlyPayments, getDayName, formatTime, formatDuration } from '@/lib/utils'
+import { generateMonthlyPayments, getDayName, formatTime, formatDuration, getGradeLabels, GRADES, renderClassSchedules } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
 
 export default function StudentForm({ initialData = null, isEditing = false }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [availableClasses, setAvailableClasses] = useState([])
+  const [subjects, setSubjects] = useState([])
   const [selectedClasses, setSelectedClasses] = useState(new Set())
+  const [selectedGrades, setSelectedGrades] = useState([])
   const router = useRouter()
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors }
   } = useForm({
     resolver: zodResolver(studentSchema),
     defaultValues: initialData || {
       name: '',
-      grade: '',
+      grades: [],
       phone: '',
       parent_name: ''
     }
   })
 
+  const watchedGrades = watch('grades')
+
   useEffect(() => {
+    fetchSubjects()
     fetchClasses()
     if (isEditing && initialData?.id) {
       fetchStudentClasses(initialData.id)
+      setSelectedGrades(initialData.grades || [])
     }
   }, [isEditing, initialData])
 
-  const fetchClasses = async () => {
+  const fetchSubjects = async () => {
     try {
       const { data, error } = await supabase
-        .from('classes')
+        .from('subjects')
         .select('*')
         .order('name')
 
       if (error) throw error
-      setAvailableClasses(data || [])
+      setSubjects(data || [])
+    } catch (err) {
+      console.error('Error fetching subjects:', err)
+    }
+  }
+
+  const fetchClasses = async () => {
+    try {
+      // Fetch classes with their schedules and subjects
+      const { data: classesData, error: classesError } = await supabase
+        .from('classes')
+        .select(`
+          *,
+          class_schedules (
+            id,
+            day_of_week,
+            start_time,
+            duration
+          )
+        `)
+        .order('name')
+
+      if (classesError) throw classesError
+
+      // Fetch subjects separately to avoid complex joins
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('*')
+
+      if (subjectsError) throw subjectsError
+
+      // Merge subject data with classes
+      const classesWithDetails = (classesData || []).map(classItem => ({
+        ...classItem,
+        subjects: (classItem.subject_ids || []).map(subjectId => 
+          subjectsData.find(s => s.id === subjectId)
+        ).filter(Boolean)
+      }))
+
+      setAvailableClasses(classesWithDetails)
     } catch (err) {
       console.error('Error fetching classes:', err)
     }
@@ -69,6 +117,18 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
     } catch (err) {
       console.error('Error fetching student classes:', err)
     }
+  }
+
+  const handleGradeChange = (gradeValue, checked) => {
+    const currentGrades = selectedGrades || []
+    let newGrades
+    if (checked) {
+      newGrades = [...currentGrades, gradeValue]
+    } else {
+      newGrades = currentGrades.filter(g => g !== gradeValue)
+    }
+    setSelectedGrades(newGrades)
+    setValue('grades', newGrades)
   }
 
   const onSubmit = async (data) => {
@@ -159,6 +219,17 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
     setSelectedClasses(newSelected)
   }
 
+  const renderClassSubjects = (subjects) => {
+    if (!subjects || subjects.length === 0) return 'No subjects'
+    
+    return subjects.map((subject, index) => (
+      <span key={subject.id} className="text-sm">
+        {subject.name}
+        {index < subjects.length - 1 && ', '}
+      </span>
+    ))
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <Card>
@@ -187,18 +258,40 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
                   <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
                 )}
               </div>
+            </div>
 
-              <div>
-                <Label htmlFor="grade">Grade *</Label>
-                <Input
-                  id="grade"
-                  {...register('grade')}
-                  placeholder="e.g., 10, 11, A/L"
-                />
-                {errors.grade && (
-                  <p className="text-sm text-red-600 mt-1">{errors.grade.message}</p>
-                )}
+            {/* Grades Selection */}
+            <div>
+              <Label>Student Grades *</Label>
+              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mt-2">
+                {GRADES.map((grade) => (
+                  <div key={grade.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`student-grade-${grade.value}`}
+                      checked={selectedGrades.includes(grade.value)}
+                      onCheckedChange={(checked) => handleGradeChange(grade.value, checked)}
+                    />
+                    <Label 
+                      htmlFor={`student-grade-${grade.value}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {grade.value}
+                    </Label>
+                  </div>
+                ))}
               </div>
+              {selectedGrades.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {selectedGrades.map((grade) => (
+                    <Badge key={grade} variant="secondary">
+                      Grade {grade}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {errors.grades && (
+                <p className="text-sm text-red-600 mt-1">{errors.grades.message}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -262,21 +355,48 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
               No classes available. Create some classes first.
             </p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               {availableClasses.map((classItem) => (
-                <div key={classItem.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                <div key={classItem.id} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-gray-50">
                   <Checkbox
                     checked={selectedClasses.has(classItem.id)}
                     onCheckedChange={() => toggleClass(classItem.id)}
                   />
-                  <div className="flex-1">
-                    <h4 className="font-medium">{classItem.name}</h4>
-                    <p className="text-sm text-gray-600">
-                      Grade {classItem.grade} • Rs. {classItem.fee}/month
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {getDayName(classItem.day_of_week)}, {formatTime(classItem.start_time)} ({formatDuration(classItem.duration)})
-                    </p>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-lg">{classItem.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{classItem.class_type}</Badge>
+                        <span className="font-semibold text-green-600">Rs. {classItem.fee}/month</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Grades:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {(classItem.grades || []).map((grade) => (
+                            <Badge key={grade} variant="secondary" className="text-xs">
+                              Grade {grade}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Subjects:</span>
+                        <span className="text-sm text-gray-600">
+                          {renderClassSubjects(classItem.subjects)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Schedule:</span>
+                        <div className="text-sm text-gray-600">
+                          {renderClassSchedules(classItem.class_schedules)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

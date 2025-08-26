@@ -1,8 +1,8 @@
 // src/components/ClassForm.js
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { classSchema } from '@/lib/validations'
 import { supabase } from '@/lib/supabase'
@@ -11,11 +11,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DAYS_OF_WEEK } from '@/lib/utils'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
+import { Trash2, Plus } from 'lucide-react'
+import { DAYS_OF_WEEK, GRADES, CLASS_TYPES, getDayName } from '@/lib/utils'
 
 export default function ClassForm({ initialData = null, isEditing = false }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [subjects, setSubjects] = useState([])
   const router = useRouter()
 
   const {
@@ -23,18 +27,46 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
     handleSubmit,
     setValue,
     watch,
+    control,
     formState: { errors }
   } = useForm({
     resolver: zodResolver(classSchema),
     defaultValues: initialData || {
       name: '',
-      grade: '',
-      day_of_week: 1,
-      start_time: '',
-      duration: 60,
-      fee: 0
+      grades: [],
+      subject_ids: [],
+      class_type: 'Group',
+      fee: 0,
+      schedules: [{ day_of_week: 1, start_time: '', duration: 60 }]
     }
   })
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'schedules'
+  })
+
+  const watchedGrades = watch('grades')
+  const watchedSubjects = watch('subject_ids')
+
+  // Fetch subjects on component mount
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('subjects')
+          .select('*')
+          .order('name')
+        
+        if (error) throw error
+        setSubjects(data || [])
+      } catch (err) {
+        console.error('Error fetching subjects:', err)
+      }
+    }
+
+    fetchSubjects()
+  }, [])
 
   const onSubmit = async (data) => {
     setLoading(true)
@@ -42,18 +74,70 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
 
     try {
       if (isEditing) {
-        const { error } = await supabase
+        // Update class
+        const { error: classError } = await supabase
           .from('classes')
-          .update(data)
+          .update({
+            name: data.name,
+            grades: data.grades,
+            subject_ids: data.subject_ids,
+            class_type: data.class_type,
+            fee: data.fee
+          })
           .eq('id', initialData.id)
 
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('classes')
-          .insert([data])
+        if (classError) throw classError
 
-        if (error) throw error
+        // Delete existing schedules
+        const { error: deleteError } = await supabase
+          .from('class_schedules')
+          .delete()
+          .eq('class_id', initialData.id)
+
+        if (deleteError) throw deleteError
+
+        // Insert new schedules
+        const schedules = data.schedules.map(schedule => ({
+          class_id: initialData.id,
+          day_of_week: schedule.day_of_week,
+          start_time: schedule.start_time,
+          duration: schedule.duration
+        }))
+
+        const { error: scheduleError } = await supabase
+          .from('class_schedules')
+          .insert(schedules)
+
+        if (scheduleError) throw scheduleError
+      } else {
+        // Create new class
+        const { data: classData, error: classError } = await supabase
+          .from('classes')
+          .insert([{
+            name: data.name,
+            grades: data.grades,
+            subject_ids: data.subject_ids,
+            class_type: data.class_type,
+            fee: data.fee
+          }])
+          .select()
+          .single()
+
+        if (classError) throw classError
+
+        // Insert schedules
+        const schedules = data.schedules.map(schedule => ({
+          class_id: classData.id,
+          day_of_week: schedule.day_of_week,
+          start_time: schedule.start_time,
+          duration: schedule.duration
+        }))
+
+        const { error: scheduleError } = await supabase
+          .from('class_schedules')
+          .insert(schedules)
+
+        if (scheduleError) throw scheduleError
       }
 
       router.push('/classes')
@@ -65,8 +149,26 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
     }
   }
 
+  const handleGradeChange = (gradeValue, checked) => {
+    const currentGrades = watchedGrades || []
+    if (checked) {
+      setValue('grades', [...currentGrades, gradeValue])
+    } else {
+      setValue('grades', currentGrades.filter(g => g !== gradeValue))
+    }
+  }
+
+  const handleSubjectChange = (subjectId, checked) => {
+    const currentSubjects = watchedSubjects || []
+    if (checked) {
+      setValue('subject_ids', [...currentSubjects, subjectId])
+    } else {
+      setValue('subject_ids', currentSubjects.filter(s => s !== subjectId))
+    }
+  }
+
   return (
-    <Card className="max-w-2xl mx-auto">
+    <Card className="max-w-4xl mx-auto">
       <CardHeader>
         <CardTitle>
           {isEditing ? 'Edit Class' : 'Create New Class'}
@@ -80,13 +182,14 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
             </div>
           )}
 
+          {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="name">Class Name *</Label>
               <Input
                 id="name"
                 {...register('name')}
-                placeholder="e.g., Mathematics Advanced"
+                placeholder="e.g., Advanced Mathematics"
               />
               {errors.name && (
                 <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
@@ -94,86 +197,204 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
             </div>
 
             <div>
-              <Label htmlFor="grade">Grade *</Label>
-              <Input
-                id="grade"
-                {...register('grade')}
-                placeholder="e.g., 10, 11, A/L"
-              />
-              {errors.grade && (
-                <p className="text-sm text-red-600 mt-1">{errors.grade.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="day_of_week">Day of Week *</Label>
+              <Label htmlFor="class_type">Class Type *</Label>
               <Select
-                onValueChange={(value) => setValue('day_of_week', parseInt(value))}
-                defaultValue={watch('day_of_week')?.toString()}
+                onValueChange={(value) => setValue('class_type', value)}
+                defaultValue={watch('class_type')}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select day" />
+                  <SelectValue placeholder="Select class type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DAYS_OF_WEEK.map((day) => (
-                    <SelectItem key={day.value} value={day.value.toString()}>
-                      {day.label}
+                  {CLASS_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.day_of_week && (
-                <p className="text-sm text-red-600 mt-1">{errors.day_of_week.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="start_time">Start Time *</Label>
-              <Input
-                id="start_time"
-                type="time"
-                {...register('start_time')}
-              />
-              {errors.start_time && (
-                <p className="text-sm text-red-600 mt-1">{errors.start_time.message}</p>
+              {errors.class_type && (
+                <p className="text-sm text-red-600 mt-1">{errors.class_type.message}</p>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="duration">Duration (minutes) *</Label>
-              <Input
-                id="duration"
-                type="number"
-                min="15"
-                max="480"
-                {...register('duration', { valueAsNumber: true })}
-                placeholder="60"
-              />
-              {errors.duration && (
-                <p className="text-sm text-red-600 mt-1">{errors.duration.message}</p>
-              )}
+          {/* Grades Selection */}
+          <div>
+            <Label>Grades *</Label>
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mt-2">
+              {GRADES.map((grade) => (
+                <div key={grade.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`grade-${grade.value}`}
+                    checked={watchedGrades?.includes(grade.value) || false}
+                    onCheckedChange={(checked) => handleGradeChange(grade.value, checked)}
+                  />
+                  <Label 
+                    htmlFor={`grade-${grade.value}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {grade.value}
+                  </Label>
+                </div>
+              ))}
             </div>
-
-            <div>
-              <Label htmlFor="fee">Monthly Fee (Rs.) *</Label>
-              <Input
-                id="fee"
-                type="number"
-                min="0"
-                step="0.01"
-                {...register('fee', { valueAsNumber: true })}
-                placeholder="5000.00"
-              />
-              {errors.fee && (
-                <p className="text-sm text-red-600 mt-1">{errors.fee.message}</p>
-              )}
-            </div>
+            {watchedGrades?.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {watchedGrades.map((grade) => (
+                  <Badge key={grade} variant="secondary">
+                    Grade {grade}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {errors.grades && (
+              <p className="text-sm text-red-600 mt-1">{errors.grades.message}</p>
+            )}
           </div>
 
+          {/* Subjects Selection */}
+          <div>
+            <Label>Subjects *</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
+              {subjects.map((subject) => (
+                <div key={subject.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`subject-${subject.id}`}
+                    checked={watchedSubjects?.includes(subject.id) || false}
+                    onCheckedChange={(checked) => handleSubjectChange(subject.id, checked)}
+                  />
+                  <Label 
+                    htmlFor={`subject-${subject.id}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {subject.name}
+                  </Label>
+                </div>
+              ))}
+            </div>
+            {watchedSubjects?.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {watchedSubjects.map((subjectId) => {
+                  const subject = subjects.find(s => s.id === subjectId)
+                  return subject ? (
+                    <Badge key={subjectId} variant="secondary">
+                      {subject.name}
+                    </Badge>
+                  ) : null
+                })}
+              </div>
+            )}
+            {errors.subject_ids && (
+              <p className="text-sm text-red-600 mt-1">{errors.subject_ids.message}</p>
+            )}
+          </div>
+
+          {/* Fee */}
+          <div>
+            <Label htmlFor="fee">Monthly Fee (Rs.) *</Label>
+            <Input
+              id="fee"
+              type="number"
+              min="0"
+              step="0.01"
+              {...register('fee', { valueAsNumber: true })}
+              placeholder="5000.00"
+            />
+            {errors.fee && (
+              <p className="text-sm text-red-600 mt-1">{errors.fee.message}</p>
+            )}
+          </div>
+
+          {/* Schedules */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <Label>Class Schedules *</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ day_of_week: 1, start_time: '', duration: 60 })}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Schedule
+              </Button>
+            </div>
+
+            {fields.map((field, index) => (
+              <Card key={field.id} className="mb-4 shadow-non">
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label htmlFor={`schedules.${index}.day_of_week`}>Day</Label>
+                      <Select
+                        onValueChange={(value) => setValue(`schedules.${index}.day_of_week`, parseInt(value))}
+                        defaultValue={watch(`schedules.${index}.day_of_week`)?.toString()}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select day" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DAYS_OF_WEEK.map((day) => (
+                            <SelectItem key={day.value} value={day.value.toString()}>
+                              {day.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor={`schedules.${index}.start_time`}>Start Time</Label>
+                      <Input
+                        id={`schedules.${index}.start_time`}
+                        type="time"
+                        {...register(`schedules.${index}.start_time`)}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor={`schedules.${index}.duration`}>Duration (min)</Label>
+                      <Input
+                        id={`schedules.${index}.duration`}
+                        type="number"
+                        min="15"
+                        max="480"
+                        {...register(`schedules.${index}.duration`, { valueAsNumber: true })}
+                        placeholder="60"
+                      />
+                    </div>
+
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => remove(index)}
+                        disabled={fields.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {errors.schedules?.[index] && (
+                    <div className="mt-2 text-sm text-red-600">
+                      {Object.values(errors.schedules[index]).map((error, i) => (
+                        <p key={i}>{error.message}</p>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+
+            {errors.schedules && (
+              <p className="text-sm text-red-600 mt-1">{errors.schedules.message}</p>
+            )}
+          </div>
+
+          {/* Submit Buttons */}
           <div className="flex gap-4 pt-4">
             <Button
               type="submit"
