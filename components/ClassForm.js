@@ -37,7 +37,7 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
       subject_ids: [],
       class_type: 'Group',
       fee: 0,
-      schedules: [{ day_of_week: 1, start_time: '', duration: 60 }]
+      schedules: [{ day_of_week: 1, start_time: '', duration: 120 }]
     }
   })
 
@@ -361,7 +361,7 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
                         min="15"
                         max="480"
                         {...register(`schedules.${index}.duration`, { valueAsNumber: true })}
-                        placeholder="60"
+                        placeholder="120"
                       />
                     </div>
 
