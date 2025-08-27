@@ -39,6 +39,18 @@ export default function SchedulePage() {
         .order('start_time')
 
       if (schedulesError) throw schedulesError
+      
+      // Get potential revenue for current month
+      const currentMonth = new Date().getMonth() + 1
+      const currentYear = new Date().getFullYear()
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select('SUM(amount)')
+        .eq('month', currentMonth)
+        .eq('year', currentYear)
+        .single();
+      
+      if (paymentsError) throw paymentsError
 
       // Get all subject data
       const { data: subjectsData, error: subjectsError } = await supabase
