@@ -57,11 +57,46 @@ export default function Dashboard() {
 
       // Get today's classes
       const today = new Date().getDay()
-      const { data: classesData } = await supabase
-        .from('classes')
-        .select('*')
-        .eq('day_of_week', today)
-        .order('start_time')
+      const { data: schedulesData, error } = await supabase
+        .from("class_schedules")
+        .select(`
+          id,
+          day_of_week,
+          start_time,
+          duration,
+          classes (
+            id,
+            name,
+            grades,
+            fee
+          )
+        `)
+        .eq("day_of_week", today)
+        .order("start_time");
+
+      if (error) {
+        console.error(error);
+      } else {
+        console.log(schedulesData);
+      }
+
+      // Get all subject data
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from('subjects')
+        .select('id, name')
+
+      if (subjectsError) throw subjectsError
+
+      // Merge subject data with schedules
+      const schedulesWithSubjects = schedulesData.map(schedule => ({
+        ...schedule,
+        classes: {
+          ...schedule.classes,
+          subjects: schedule.classes.subject_ids?.map(subjectId => 
+            subjectsData.find(subject => subject.id === subjectId)
+          ).filter(Boolean) || []
+        }
+      }))
 
       // Get recent payments (last 5)
       const { data: paymentsData } = await supabase
@@ -82,7 +117,7 @@ export default function Dashboard() {
         totalRevenue
       })
       
-      setTodaysClasses(classesData || [])
+      setTodaysClasses(schedulesWithSubjects || [])
       setRecentPayments(paymentsData || [])
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -166,12 +201,12 @@ export default function Dashboard() {
                 {todaysClasses.map((classItem) => (
                   <div key={classItem.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
-                      <h4 className="font-medium">{classItem.name}</h4>
-                      <p className="text-sm text-gray-600">Grade {classItem.grade}</p>
+                      <h4 className="font-medium">{classItem.classes.name}</h4>
+                      <p className="text-sm text-gray-600">Grade {classItem.classes.grades}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{formatTime(classItem.start_time)}</p>
-                      <Badge variant="outline">Rs. {classItem.fee}</Badge>
+                      <Badge variant="outline">Rs. {classItem.classes.fee}</Badge>
                     </div>
                   </div>
                 ))}
