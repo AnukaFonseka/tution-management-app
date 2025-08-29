@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Users, BookOpen, CreditCard, Calendar, TrendingUp } from 'lucide-react'
+import { Users, BookOpen, CreditCard, Calendar, TrendingUp,  } from 'lucide-react'
 import { getDayName, formatTime } from '@/lib/utils'
 
 export default function Dashboard() {
@@ -68,7 +67,8 @@ export default function Dashboard() {
             id,
             name,
             grades,
-            fee
+            fee,
+            student_classes(count)
           )
         `)
         .eq("day_of_week", today)
@@ -185,12 +185,12 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Today's Classes */}
+        {/* Today's Schedule */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <Calendar className="w-5 h-5 mr-2" />
-              Today&apos;s Classes ({getDayName(new Date().getDay())})
+              Today&apos;s Schedule ({getDayName(new Date().getDay())})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -206,7 +206,11 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{formatTime(classItem.start_time)}</p>
-                      <Badge variant="outline">Rs. {classItem.classes.fee}</Badge>
+                      {/* <Badge variant="outline">Rs. {classItem.classes.fee}</Badge> */}
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Users className="w-4 h-4 mr-2" />
+                        {classItem.classes.student_classes?.[0]?.count || 0}
+                      </div>
                     </div>
                   </div>
                 ))}

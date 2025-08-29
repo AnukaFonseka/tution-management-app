@@ -43,7 +43,7 @@ export default function Navigation() {
   const pathname = usePathname()
 
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm">
+    <nav className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hidden sm:block">
         <div className="flex justify-between h-16">
           <div className="flex">
@@ -81,7 +81,7 @@ export default function Navigation() {
       
       {/* Mobile menu */}
       <div className="sm:hidden">
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+        <div className="fixed bottom-0 left-0 right-0 !bg-white border-t !border-gray-200 !z-50">
           <nav className="flex justify-around py-2">
               {navItems.map((item) => {
                 const Icon = item.icon

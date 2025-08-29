@@ -1,0 +1,32 @@
+src/
+├── app/
+│   ├── globals.css
+│   ├── layout.js
+│   ├── page.js                    # Dashboard
+│   ├── classes/
+│   │   ├── page.js               # Classes list
+│   │   ├── new/page.js           # Create class
+│   │   └── [id]/
+│   │       ├── page.js           # Class details
+│   │       └── edit/page.js      # Edit class
+│   ├── students/
+│   │   ├── page.js               # Students list
+│   │   ├── new/page.js           # Add student
+│   │   └── [id]/
+│   │       ├── page.js           # Student details
+│   │       └── edit/page.js      # Edit student
+│   ├── schedule/
+│   │   └── page.js               # Calendar view
+│   └── payments/
+│       └── page.js               # Payment tracking
+├── components/
+│   ├── ui/                       # shadcn/ui components
+│   ├── ClassForm.js
+│   ├── StudentForm.js
+│   ├── PaymentTable.js
+│   ├── ScheduleCalendar.js
+│   └── Navigation.js
+├── lib/
+    ├── supabase.js               # Supabase client
+    ├── utils.js                  # Utility functions
+    └── validations.js            # Form validations

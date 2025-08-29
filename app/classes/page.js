@@ -32,8 +32,7 @@ export default function ClassesPage() {
             duration
           )
         `)
-        .order('day_of_week')
-        .order('start_time')
+        .order('name')
 
       if (error) throw error
       setClasses(data || [])

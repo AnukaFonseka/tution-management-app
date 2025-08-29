@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Check, X, DollarSign, Calendar, Filter } from 'lucide-react'
+import { Check, X, DollarSign, Calendar, Filter, CircleCheck, Info   } from 'lucide-react'
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([])
@@ -45,7 +45,7 @@ export default function PaymentsPage() {
         .from('payments')
         .select(`
           *,
-          students(name, grade, phone),
+          students(name, phone),
           classes(name, fee)
         `)
         .eq('month', selectedMonth)
@@ -94,9 +94,9 @@ export default function PaymentsPage() {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'paid':
-        return <Badge className="bg-green-100 text-green-800">Paid</Badge>
+        return <Badge className="bg-green-100 text-green-800 text-md rounded-full"><CircleCheck className="text-lg" />  Paid</Badge>
       case 'pending':
-        return <Badge variant="outline">Pending</Badge>
+        return <Badge className="bg-yellow-50 text-yellow-600 text-md rounded-full"><Info className="text-lg" />  Pending</Badge>
       case 'overdue':
         return <Badge className="bg-red-100 text-red-800">Overdue</Badge>
       default:
@@ -187,7 +187,7 @@ export default function PaymentsPage() {
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="pending">.</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>
                 </SelectContent>
               </Select>
@@ -307,21 +307,23 @@ export default function PaymentsPage() {
                         {payment.status !== 'paid' && (
                           <Button
                             size="sm"
+                            variant="outline"
                             onClick={() => updatePaymentStatus(payment.id, 'paid')}
-                            className="bg-green-600 hover:bg-green-700"
+                            className="text-green-800 border-green-800 hover:bg-green-100 cursor-pointer"
                           >
-                            <Check className="w-4 h-4 mr-1" />
-                            Mark Paid
+                            {/* <Check className="w-4 h-4 mr-1" /> */}
+                            Mark as paid
                           </Button>
                         )}
                         {payment.status === 'paid' && (
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="text"
                             onClick={() => updatePaymentStatus(payment.id, 'pending')}
+                            className="underline text-xs cursor-pointer text-gray-500"
                           >
-                            <X className="w-4 h-4 mr-1" />
-                            Mark Pending
+                            {/* <X className="w-4 h-4 mr-1" /> */}
+                            Undo
                           </Button>
                         )}
                       </div>

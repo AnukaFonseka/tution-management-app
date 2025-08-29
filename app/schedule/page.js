@@ -11,6 +11,7 @@ export default function SchedulePage() {
   const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [potentialRevenue, setPotentialRevenue] = useState(0) 
 
   useEffect(() => {
     fetchSchedule()
@@ -51,6 +52,15 @@ export default function SchedulePage() {
       //   .single();
       
       // if (paymentsError) throw paymentsError
+
+      // Alternatively, use a RPC to calculate total revenue
+      const { data, error } = await supabase.rpc("total_revenue", { 
+        month: currentMonth, 
+        year: currentYear 
+      });
+
+      if (error) throw error
+      setPotentialRevenue(data || 0)    
 
       // Get all subject data
       const { data: subjectsData, error: subjectsError } = await supabase
@@ -96,8 +106,9 @@ export default function SchedulePage() {
       total + getStudentCount(schedule.classes), 0)
     const totalDuration = schedules.reduce((total, schedule) => 
       total + schedule.duration, 0)
-    const totalRevenue = schedules.reduce((total, schedule) => 
-      total + (schedule.classes.fee * getStudentCount(schedule.classes)), 0)
+    // const totalRevenue = schedules.reduce((total, schedule) => 
+    //   total + (schedule.classes.fee * getStudentCount(schedule.classes)), 0)
+    const totalRevenue = potentialRevenue
     
     return { totalSchedules, totalStudents, totalDuration, totalRevenue }
   }
@@ -198,7 +209,7 @@ export default function SchedulePage() {
                           )}
                           
                           {/* Student names if any */}
-                          {classData.student_classes && classData.student_classes.length > 0 && (
+                          {/* {classData.student_classes && classData.student_classes.length > 0 && (
                             <div className="border-t border-blue-200 pt-2 mt-2">
                               <p className="text-xs text-blue-600 mb-1">Students:</p>
                               <div className="space-y-1">
@@ -214,7 +225,7 @@ export default function SchedulePage() {
                                 )}
                               </div>
                             </div>
-                          )}
+                          )} */}
                         </div>
                       </div>
                     )
