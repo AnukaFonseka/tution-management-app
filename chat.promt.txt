@@ -1,3 +1,5 @@
+I am building a tution management app and this is my project structure : 
+
 src/
 ├── app/
 │   ├── globals.css
@@ -30,3 +32,6 @@ src/
     ├── supabase.js               # Supabase client
     ├── utils.js                  # Utility functions
     └── validations.js            # Form validations
+
+and this is my src/app/page.js : 
+
