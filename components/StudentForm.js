@@ -21,6 +21,7 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
   const [subjects, setSubjects] = useState([])
   const [selectedClasses, setSelectedClasses] = useState(new Set())
   const [selectedGrades, setSelectedGrades] = useState([])
+  const [customFees, setCustomFees] = useState(new Map()) // Store custom fees per class
   const router = useRouter()
 
   const {
@@ -107,13 +108,23 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
     try {
       const { data, error } = await supabase
         .from('student_classes')
-        .select('class_id')
+        .select('class_id, custom_fee')
         .eq('student_id', studentId)
 
       if (error) throw error
       
       const classIds = new Set(data.map(item => item.class_id))
+      const fees = new Map()
+      
+      // Store custom fees for existing enrollments
+      data.forEach(item => {
+        if (item.custom_fee !== null) {
+          fees.set(item.class_id, item.custom_fee)
+        }
+      })
+      
       setSelectedClasses(classIds)
+      setCustomFees(fees)
     } catch (err) {
       console.error('Error fetching student classes:', err)
     }
@@ -131,7 +142,21 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
     setValue('grades', newGrades)
   }
 
+  const handleCustomFeeChange = (classId, value) => {
+    const newCustomFees = new Map(customFees)
+    if (value === '' || value === null) {
+      newCustomFees.delete(classId)
+    } else {
+      const numericValue = parseFloat(value)
+      if (!isNaN(numericValue) && numericValue >= 0) {
+        newCustomFees.set(classId, numericValue)
+      }
+    }
+    setCustomFees(newCustomFees)
+  }
+
   const onSubmit = async (data) => {
+    console.log('Form Data:', data)
     setLoading(true)
     setError('')
 
@@ -176,7 +201,8 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
       if (selectedClasses.size > 0) {
         const classAssignments = Array.from(selectedClasses).map(classId => ({
           student_id: studentId,
-          class_id: classId
+          class_id: classId,
+          custom_fee: customFees.get(classId) || null
         }))
 
         const { error: assignmentError } = await supabase
@@ -189,7 +215,9 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
         for (const classId of selectedClasses) {
           const classData = availableClasses.find(cls => cls.id === classId)
           if (classData) {
-            const payments = await generateMonthlyPayments(studentId, classId, classData.fee, supabase)
+            // Use custom fee if set, otherwise use class default fee
+            const feeToUse = customFees.get(classId) || classData.fee
+            const payments = await generateMonthlyPayments(studentId, classId, feeToUse, supabase)
             
             const { error: paymentError } = await supabase
               .from('payments')
@@ -213,6 +241,10 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
     const newSelected = new Set(selectedClasses)
     if (newSelected.has(classId)) {
       newSelected.delete(classId)
+      // Remove custom fee when deselecting class
+      const newCustomFees = new Map(customFees)
+      newCustomFees.delete(classId)
+      setCustomFees(newCustomFees)
     } else {
       newSelected.add(classId)
     }
@@ -346,7 +378,7 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
         <CardHeader>
           <CardTitle>Class Assignment</CardTitle>
           <p className="text-sm text-gray-600">
-            Select which classes this student should be enrolled in
+            Select which classes this student should be enrolled in. You can set custom fees per class if needed.
           </p>
         </CardHeader>
         <CardContent>
@@ -367,7 +399,12 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
                       <h4 className="font-medium text-lg">{classItem.name}</h4>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">{classItem.class_type}</Badge>
-                        <span className="font-semibold text-green-600">Rs. {classItem.fee}/month</span>
+                        <span className="font-semibold text-green-600">
+                          Rs. {customFees.get(classItem.id) || classItem.fee}/month
+                          {customFees.has(classItem.id) && (
+                            <span className="text-xs text-gray-500 ml-1">(custom)</span>
+                          )}
+                        </span>
                       </div>
                     </div>
                     
@@ -396,6 +433,41 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
                           {renderClassSchedules(classItem.class_schedules)}
                         </div>
                       </div>
+
+                      {/* Custom Fee Input - Only show if class is selected */}
+                      {selectedClasses.has(classItem.id) && (
+                        <div className="flex items-center gap-2 mt-3 p-3 bg-blue-50 rounded-md">
+                          <Label htmlFor={`custom-fee-${classItem.id}`} className="text-sm font-medium whitespace-nowrap">
+                            Custom Fee (Rs.):
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              id={`custom-fee-${classItem.id}`}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder={`Default: ${classItem.fee}`}
+                              value={customFees.get(classItem.id) || ''}
+                              onChange={(e) => handleCustomFeeChange(classItem.id, e.target.value)}
+                              className="w-32"
+                            />
+                            {customFees.has(classItem.id) && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCustomFeeChange(classItem.id, null)}
+                                className="text-xs"
+                              >
+                                Reset to default
+                              </Button>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Leave empty to use default fee (Rs. {classItem.fee})
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
