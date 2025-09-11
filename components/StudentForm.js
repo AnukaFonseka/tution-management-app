@@ -190,6 +190,103 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
     setCustomFees(newCustomFees)
   }
 
+  // Helper function to manage payments without deleting history
+  const updateStudentPayments = async (studentId, newClassIds, customFeesMap) => {
+    const currentMonth = new Date().getMonth() + 1
+    const currentYear = new Date().getFullYear()
+
+    // Get current enrollments
+    const { data: currentEnrollments, error: enrollmentError } = await supabase
+      .from('student_classes')
+      .select('class_id')
+      .eq('student_id', studentId)
+
+    if (enrollmentError) throw enrollmentError
+
+    const currentClassIds = new Set(currentEnrollments.map(e => e.class_id))
+    const newClassIdsSet = new Set(newClassIds)
+
+    // Find classes to add and remove
+    const classesToAdd = [...newClassIdsSet].filter(id => !currentClassIds.has(id))
+    const classesToRemove = [...currentClassIds].filter(id => !newClassIdsSet.has(id))
+
+    // Remove enrollments for classes no longer selected
+    if (classesToRemove.length > 0) {
+      const { error: removeEnrollmentError } = await supabase
+        .from('student_classes')
+        .delete()
+        .eq('student_id', studentId)
+        .in('class_id', classesToRemove)
+
+      if (removeEnrollmentError) throw removeEnrollmentError
+
+      // Only remove FUTURE payments (current month and later) for removed classes
+      const { error: removeFuturePaymentsError } = await supabase
+        .from('payments')
+        .delete()
+        .eq('student_id', studentId)
+        .in('class_id', classesToRemove)
+        .or(`year.gt.${currentYear},and(year.eq.${currentYear},month.gte.${currentMonth})`)
+
+      if (removeFuturePaymentsError) throw removeFuturePaymentsError
+    }
+
+    // Add new enrollments
+    if (classesToAdd.length > 0) {
+      const newEnrollments = classesToAdd.map(classId => ({
+        student_id: studentId,
+        class_id: classId,
+        custom_fee: customFeesMap.get(classId) || null
+      }))
+
+      const { error: addEnrollmentError } = await supabase
+        .from('student_classes')
+        .insert(newEnrollments)
+
+      if (addEnrollmentError) throw addEnrollmentError
+
+      // Generate future payments for new classes
+      for (const classId of classesToAdd) {
+        const classData = availableClasses.find(cls => cls.id === classId)
+        if (classData) {
+          const feeToUse = customFeesMap.get(classId) || classData.fee
+          const payments = await generateMonthlyPayments(studentId, classId, feeToUse, supabase)
+          
+          const { error: paymentError } = await supabase
+            .from('payments')
+            .insert(payments)
+
+          if (paymentError) throw paymentError
+        }
+      }
+    }
+
+    // Update custom fees for existing enrollments
+    for (const [classId, customFee] of customFeesMap) {
+      if (currentClassIds.has(classId)) {
+        // Update enrollment with new custom fee
+        const { error: updateEnrollmentError } = await supabase
+          .from('student_classes')
+          .update({ custom_fee: customFee })
+          .eq('student_id', studentId)
+          .eq('class_id', classId)
+
+        if (updateEnrollmentError) throw updateEnrollmentError
+
+        // Update future payment amounts (current month and later)
+        const { error: updatePaymentsError } = await supabase
+          .from('payments')
+          .update({ amount: customFee })
+          .eq('student_id', studentId)
+          .eq('class_id', classId)
+          .eq('status', 'pending') // Only update unpaid payments
+          .or(`year.gt.${currentYear},and(year.eq.${currentYear},month.gte.${currentMonth})`)
+
+        if (updatePaymentsError) throw updatePaymentsError
+      }
+    }
+  }
+
   const onSubmit = async (data) => {
     console.log('Form Data:', data)
     setLoading(true)
@@ -206,6 +303,9 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
 
         if (error) throw error
         studentId = initialData.id
+
+        // Update payments without deleting history
+        await updateStudentPayments(studentId, Array.from(selectedClasses), customFees)
       } else {
         const { data: newStudent, error } = await supabase
           .from('students')
@@ -215,50 +315,35 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
 
         if (error) throw error
         studentId = newStudent.id
-      }
 
-      // Handle class assignments
-      if (isEditing) {
-        // Remove existing class assignments
-        await supabase
-          .from('student_classes')
-          .delete()
-          .eq('student_id', studentId)
+        // Add new class assignments and generate payment records for new student
+        if (selectedClasses.size > 0) {
+          const classAssignments = Array.from(selectedClasses).map(classId => ({
+            student_id: studentId,
+            class_id: classId,
+            custom_fee: customFees.get(classId) || null
+          }))
 
-        // Remove existing payment records
-        await supabase
-          .from('payments')
-          .delete()
-          .eq('student_id', studentId)
-      }
+          const { error: assignmentError } = await supabase
+            .from('student_classes')
+            .insert(classAssignments)
 
-      // Add new class assignments and generate payment records
-      if (selectedClasses.size > 0) {
-        const classAssignments = Array.from(selectedClasses).map(classId => ({
-          student_id: studentId,
-          class_id: classId,
-          custom_fee: customFees.get(classId) || null
-        }))
+          if (assignmentError) throw assignmentError
 
-        const { error: assignmentError } = await supabase
-          .from('student_classes')
-          .insert(classAssignments)
+          // Generate payment records for each class
+          for (const classId of selectedClasses) {
+            const classData = availableClasses.find(cls => cls.id === classId)
+            if (classData) {
+              // Use custom fee if set, otherwise use class default fee
+              const feeToUse = customFees.get(classId) || classData.fee
+              const payments = await generateMonthlyPayments(studentId, classId, feeToUse, supabase)
+              
+              const { error: paymentError } = await supabase
+                .from('payments')
+                .insert(payments)
 
-        if (assignmentError) throw assignmentError
-
-        // Generate payment records for each class
-        for (const classId of selectedClasses) {
-          const classData = availableClasses.find(cls => cls.id === classId)
-          if (classData) {
-            // Use custom fee if set, otherwise use class default fee
-            const feeToUse = customFees.get(classId) || classData.fee
-            const payments = await generateMonthlyPayments(studentId, classId, feeToUse, supabase)
-            
-            const { error: paymentError } = await supabase
-              .from('payments')
-              .insert(payments)
-
-            if (paymentError) throw paymentError
+              if (paymentError) throw paymentError
+            }
           }
         }
       }
@@ -427,6 +512,11 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
               <p className="text-sm text-gray-600">
                 Select which classes this student should be enrolled in. You can set custom fees per class if needed.
               </p>
+              {isEditing && (
+                <p className="text-sm text-blue-600 mt-1">
+                  ℹ️ Changes will only affect future payments. Past payment history will be preserved.
+                </p>
+              )}
             </div>
             {isClassSectionCollapsed ? (
               <ChevronDown className="h-5 w-5" />
