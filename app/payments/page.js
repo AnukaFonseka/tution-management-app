@@ -94,11 +94,11 @@ export default function PaymentsPage() {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'paid':
-        return <Badge className="bg-green-100 text-green-800 text-md rounded-full"><CircleCheck className="text-lg" />  Paid</Badge>
+        return <Badge className="bg-green-100 text-green-800 text-sm rounded-full flex items-center gap-1"><CircleCheck className="w-4 h-4" /> Paid</Badge>
       case 'pending':
-        return <Badge className="bg-yellow-50 text-yellow-600 text-md rounded-full"><Info className="text-lg" />  Pending</Badge>
+        return <Badge className="bg-yellow-50 text-yellow-600 text-sm rounded-full flex items-center gap-1"><Info className="w-4 h-4" /> Pending</Badge>
       case 'overdue':
-        return <Badge className="bg-red-100 text-red-800">Overdue</Badge>
+        return <Badge className="bg-red-100 text-red-800 text-sm rounded-full">Overdue</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -112,6 +112,63 @@ export default function PaymentsPage() {
     totalAmount: payments.reduce((sum, p) => sum + parseFloat(p.amount), 0),
     paidAmount: payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + parseFloat(p.amount), 0)
   }
+
+  // Mobile Payment Card Component
+  const PaymentCard = ({ payment }) => (
+    <Card className="mb-4 pb-2 pt-4">
+      <CardContent className="">
+        <div className="flex justify-between mt-0">
+          <p className="font-semibold text-lg">{payment.students?.name}</p>
+          {getStatusBadge(payment.status)}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {/* Left Column - Student & Payment Details */}
+          
+          <div className="space-y-2">
+            <div className='justify-between'>
+              <p className="text-sm text-gray-600">{payment.classes?.name}</p>
+              <p className="text-sm text-gray-500">Grade {payment.students?.grade}</p>
+            </div>
+          </div>
+
+          {/* Right Column - Action Buttons */}
+          <div className="flex flex-col justify-center items-end space-y-2">
+             <div>
+              <p className="font-bold text-lg ">Rs. {payment.amount}</p>
+            </div>
+            {payment.status !== 'paid' ? (
+              <Button
+                size="sm"
+                onClick={() => updatePaymentStatus(payment.id, 'paid')}
+                className="bg-green-600 hover:bg-green-700 text-white w-full"
+              >
+                <Check className="w-4 h-4 mr-1" />
+                Paid
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => updatePaymentStatus(payment.id, 'pending')}
+                className="text-gray-600 w-full"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Undo
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className='mt-2 w-full'>
+            {payment.paid_at && (
+              <p className="text-xs text-gray-500 text-center">
+                Paid: {new Date(payment.paid_at).toLocaleDateString()}
+              </p>
+            )}
+        </div>
+        
+      </CardContent>
+    </Card>
+  )
 
   if (loading) {
     return (
@@ -187,7 +244,7 @@ export default function PaymentsPage() {
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="pending">.</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="overdue">Overdue</SelectItem>
                 </SelectContent>
               </Select>
@@ -197,57 +254,49 @@ export default function PaymentsPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-3 gap-4 mb-6">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-1">
             <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Payments</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+              {/* <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-blue-600" /> */}
+              <div className="text-center w-full">
+                <p className="text-lg md:text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-600">Payments</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-1">
             <div className="flex items-center">
-              <Check className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Paid</p>
-                <p className="text-2xl font-bold">{stats.paid}</p>
+              {/* <Check className="h-6 w-6 md:h-8 md:w-8 text-green-600" /> */}
+              <div className="text-center w-full">
+                <p className="text-lg md:text-2xl font-bold">{stats.paid}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-600">Paid</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-1">
             <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold">{stats.pending}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Revenue</p>
-                <p className="text-2xl font-bold">Rs. {stats.paidAmount.toFixed(2)}</p>
+              {/* <Calendar className="h-6 w-6 md:h-8 md:w-8 text-yellow-600" /> */}
+              <div className="text-center w-full">
+                <p className="text-lg md:text-2xl font-bold">{stats.pending}</p>
+                <p className="text-xs md:text-sm font-medium text-gray-600">Pending</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+      <div className="w-full text-center mb-6">
+        <p className="text-xs md:text-sm font-medium text-gray-600">Revenue</p>
+        <p className="text-lg md:text-2xl font-bold">Rs. {stats.paidAmount.toFixed(2)}</p>
+      </div>
 
-      {/* Payments Table */}
+      {/* Payments */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -264,74 +313,84 @@ export default function PaymentsPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Paid Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile View - Cards */}
+              <div className="block md:hidden">
                 {payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{payment.students?.name}</p>
-                        <p className="text-sm text-gray-600">Grade {payment.students?.grade}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium">{payment.classes?.name}</p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-medium">Rs. {payment.amount}</p>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(payment.status)}
-                    </TableCell>
-                    <TableCell>
-                      {payment.paid_at ? (
-                        <p className="text-sm">
-                          {new Date(payment.paid_at).toLocaleDateString()}
-                        </p>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {payment.status !== 'paid' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => updatePaymentStatus(payment.id, 'paid')}
-                            className="text-green-800 border-green-800 hover:bg-green-100 cursor-pointer"
-                          >
-                            {/* <Check className="w-4 h-4 mr-1" /> */}
-                            Mark as paid
-                          </Button>
-                        )}
-                        {payment.status === 'paid' && (
-                          <Button
-                            size="sm"
-                            variant="text"
-                            onClick={() => updatePaymentStatus(payment.id, 'pending')}
-                            className="underline text-xs cursor-pointer text-gray-500"
-                          >
-                            {/* <X className="w-4 h-4 mr-1" /> */}
-                            Undo
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <PaymentCard key={payment.id} payment={payment} />
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              {/* Desktop View - Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Paid Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{payment.students?.name}</p>
+                            <p className="text-sm text-gray-600">Grade {payment.students?.grade}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <p className="font-medium">{payment.classes?.name}</p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="font-medium">Rs. {payment.amount}</p>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(payment.status)}
+                        </TableCell>
+                        <TableCell>
+                          {payment.paid_at ? (
+                            <p className="text-sm">
+                              {new Date(payment.paid_at).toLocaleDateString()}
+                            </p>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {payment.status !== 'paid' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updatePaymentStatus(payment.id, 'paid')}
+                                className="text-green-800 border-green-800 hover:bg-green-100 cursor-pointer"
+                              >
+                                Mark as paid
+                              </Button>
+                            )}
+                            {payment.status === 'paid' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updatePaymentStatus(payment.id, 'pending')}
+                                className="underline text-xs cursor-pointer text-gray-500"
+                              >
+                                Undo
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
