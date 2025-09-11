@@ -4,14 +4,16 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Clock, Users, BookOpen } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Calendar, Clock, Users, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
 import { DAYS_OF_WEEK, formatTime, formatDuration, getGradeLabels } from '@/lib/utils'
 
 export default function SchedulePage() {
   const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [potentialRevenue, setPotentialRevenue] = useState(0) 
+  const [potentialRevenue, setPotentialRevenue] = useState(0)
+  const [selectedDayIndex, setSelectedDayIndex] = useState(new Date().getDay()) // Start with today
 
   useEffect(() => {
     fetchSchedule()
@@ -44,15 +46,7 @@ export default function SchedulePage() {
       // Get potential revenue for current month
       const currentMonth = new Date().getMonth() + 1
       const currentYear = new Date().getFullYear()
-      // const { data: paymentsData, error: paymentsError } = await supabase
-      //   .from('payments')
-      //   .select('SUM(amount)')
-      //   .eq('month', currentMonth)
-      //   .eq('year', currentYear)
-      //   .single();
       
-      // if (paymentsError) throw paymentsError
-
       // Alternatively, use a RPC to calculate total revenue
       const { data, error } = await supabase.rpc("total_revenue", { 
         month: currentMonth, 
@@ -106,11 +100,75 @@ export default function SchedulePage() {
       total + getStudentCount(schedule.classes), 0)
     const totalDuration = schedules.reduce((total, schedule) => 
       total + schedule.duration, 0)
-    // const totalRevenue = schedules.reduce((total, schedule) => 
-    //   total + (schedule.classes.fee * getStudentCount(schedule.classes)), 0)
     const totalRevenue = potentialRevenue
     
     return { totalSchedules, totalStudents, totalDuration, totalRevenue }
+  }
+
+  // Mobile navigation functions
+  const goToPreviousDay = () => {
+    setSelectedDayIndex((prev) => (prev === 0 ? 6 : prev - 1))
+  }
+
+  const goToNextDay = () => {
+    setSelectedDayIndex((prev) => (prev === 6 ? 0 : prev + 1))
+  }
+
+  const getCurrentDay = () => {
+    return DAYS_OF_WEEK.find(day => day.value === selectedDayIndex)
+  }
+
+  // Render single class schedule item
+  const renderClassScheduleItem = (schedule) => {
+    const classData = schedule.classes
+    return (
+      <div
+        key={schedule.id}
+        className="p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+      >
+        <div className="space-y-2">
+          <div>
+            <h4 className="font-medium text-blue-900">
+              {classData.name}
+            </h4>
+            <div className="flex items-center gap-2 text-xs text-blue-700">
+              <span>{getGradeLabels(classData.grades).join(', ')}</span>
+              <Badge variant="secondary" className="text-xs">
+                {classData.class_type}
+              </Badge>
+            </div>
+          </div>
+          
+          <div className="flex items-center text-xs text-blue-600">
+            <Clock className="w-3 h-3 mr-1" />
+            {formatTime(schedule.start_time)}
+          </div>
+          
+          <div className="flex items-center text-xs text-blue-600">
+            <BookOpen className="w-3 h-3 mr-1" />
+            {formatDuration(schedule.duration)}
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center text-xs text-blue-600">
+              <Users className="w-3 h-3 mr-1" />
+              {getStudentCount(classData)} students
+            </div>
+            <Badge variant="outline" className="text-xs">
+              Rs. {classData.fee}
+            </Badge>
+          </div>
+          
+          {/* Subject names */}
+          {classData.subjects && classData.subjects.length > 0 && (
+            <div className="text-xs text-blue-600">
+              <span className="font-medium">Subjects: </span>
+              {classData.subjects.map(subject => subject.name).join(', ')}
+            </div>
+          )}
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -123,6 +181,8 @@ export default function SchedulePage() {
 
   const schedulesGroupedByDay = groupSchedulesByDay()
   const stats = getTotalStats()
+  const currentDay = getCurrentDay()
+  const currentDaySchedules = schedulesGroupedByDay[selectedDayIndex] || []
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -146,95 +206,86 @@ export default function SchedulePage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
-          {DAYS_OF_WEEK.map((day) => (
-            <Card key={day.value} className="h-fit">
+        <>
+          {/* Mobile View - Single Card with Day Navigation */}
+          <div className="block lg:hidden mb-6">
+            <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-center text-lg">
-                  {day.label}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={goToPreviousDay}
+                    className="p-2"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  
+                  <CardTitle className="text-center text-xl">
+                    {currentDay?.label}
+                  </CardTitle>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={goToNextDay}
+                    className="p-2"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+                
+                {/* Day indicator dots */}
+                <div className="flex justify-center mt-3 gap-2">
+                  {DAYS_OF_WEEK.map((day) => (
+                    <button
+                      key={day.value}
+                      onClick={() => setSelectedDayIndex(day.value)}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        selectedDayIndex === day.value 
+                          ? 'bg-blue-600' 
+                          : 'bg-gray-300'
+                      }`}
+                      aria-label={`Go to ${day.label}`}
+                    />
+                  ))}
+                </div>
               </CardHeader>
+              
               <CardContent className="space-y-3">
-                {schedulesGroupedByDay[day.value].length === 0 ? (
-                  <p className="text-center text-gray-500 text-sm py-4">
-                    No classes
+                {currentDaySchedules.length === 0 ? (
+                  <p className="text-center text-gray-500 text-sm py-8">
+                    No classes scheduled for {currentDay?.label}
                   </p>
                 ) : (
-                  schedulesGroupedByDay[day.value].map((schedule) => {
-                    const classData = schedule.classes
-                    return (
-                      <div
-                        key={schedule.id}
-                        className="p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-                      >
-                        <div className="space-y-2">
-                          <div>
-                            <h4 className="font-medium text-blue-900">
-                              {classData.name}
-                            </h4>
-                            <div className="flex items-center gap-2 text-xs text-blue-700">
-                              <span>{getGradeLabels(classData.grades).join(', ')}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {classData.class_type}
-                              </Badge>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center text-xs text-blue-600">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {formatTime(schedule.start_time)}
-                          </div>
-                          
-                          <div className="flex items-center text-xs text-blue-600">
-                            <BookOpen className="w-3 h-3 mr-1" />
-                            {formatDuration(schedule.duration)}
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center text-xs text-blue-600">
-                              <Users className="w-3 h-3 mr-1" />
-                              {getStudentCount(classData)} students
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                              Rs. {classData.fee}
-                            </Badge>
-                          </div>
-                          
-                          {/* Subject names */}
-                          {classData.subjects && classData.subjects.length > 0 && (
-                            <div className="text-xs text-blue-600">
-                              <span className="font-medium">Subjects: </span>
-                              {classData.subjects.map(subject => subject.name).join(', ')}
-                            </div>
-                          )}
-                          
-                          {/* Student names if any */}
-                          {/* {classData.student_classes && classData.student_classes.length > 0 && (
-                            <div className="border-t border-blue-200 pt-2 mt-2">
-                              <p className="text-xs text-blue-600 mb-1">Students:</p>
-                              <div className="space-y-1">
-                                {classData.student_classes.slice(0, 3).map((enrollment, index) => (
-                                  <p key={index} className="text-xs text-blue-700">
-                                    {enrollment.students?.name}
-                                  </p>
-                                ))}
-                                {classData.student_classes.length > 3 && (
-                                  <p className="text-xs text-blue-600 italic">
-                                    +{classData.student_classes.length - 3} more
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )} */}
-                        </div>
-                      </div>
-                    )
-                  })
+                  currentDaySchedules.map((schedule) => renderClassScheduleItem(schedule))
                 )}
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </div>
+
+          {/* Desktop View - Grid Layout */}
+          <div className="hidden lg:grid lg:grid-cols-7 gap-4">
+            {DAYS_OF_WEEK.map((day) => (
+              <Card key={day.value} className="h-fit">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-center text-lg">
+                    {day.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {schedulesGroupedByDay[day.value].length === 0 ? (
+                    <p className="text-center text-gray-500 text-sm py-4">
+                      No classes
+                    </p>
+                  ) : (
+                    schedulesGroupedByDay[day.value].map((schedule) => renderClassScheduleItem(schedule))
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Summary Stats */}

@@ -32,7 +32,7 @@ export default function ClassesPage() {
             duration
           )
         `)
-        .order('name')
+        .order('grades')
 
       if (error) throw error
       setClasses(data || [])
@@ -113,7 +113,17 @@ export default function ClassesPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-lg">{classItem.name}</CardTitle>
-                    <p className="text-sm text-gray-600">Grade {classItem.grades}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(classItem.grades || []).map((grade) => (
+                        <Badge 
+                          key={grade} 
+                          variant="outline"
+                          className="text-xs"
+                        >
+                          Grade {grade}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                   <Badge variant="outline">
                     Rs. {classItem.fee}
