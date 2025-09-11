@@ -560,7 +560,7 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
                 )}
                 {classSearchTerm && (
                   <span>
-                    • Search: "{classSearchTerm}"
+                    • Search: &quot;{classSearchTerm}&quot;
                   </span>
                 )}
               </div>
