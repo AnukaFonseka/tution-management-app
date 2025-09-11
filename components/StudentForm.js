@@ -1,6 +1,6 @@
 // src/components/StudentForm.js
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import { ChevronDown, ChevronUp, Search } from 'lucide-react'
 
 export default function StudentForm({ initialData = null, isEditing = false }) {
   const [loading, setLoading] = useState(false)
@@ -22,6 +23,8 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
   const [selectedClasses, setSelectedClasses] = useState(new Set())
   const [selectedGrades, setSelectedGrades] = useState([])
   const [customFees, setCustomFees] = useState(new Map()) // Store custom fees per class
+  const [classSearchTerm, setClassSearchTerm] = useState('')
+  const [isClassSectionCollapsed, setIsClassSectionCollapsed] = useState(false)
   const router = useRouter()
 
   const {
@@ -129,6 +132,38 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
       console.error('Error fetching student classes:', err)
     }
   }
+
+  // Filter classes based on selected grades and search term
+  const filteredClasses = useMemo(() => {
+    let filtered = availableClasses
+
+    // Filter by grades if any grades are selected
+    if (selectedGrades.length > 0) {
+      filtered = filtered.filter(classItem => {
+        // Check if any of the class grades match any of the selected student grades
+        return classItem.grades && classItem.grades.some(classGrade => 
+          selectedGrades.includes(classGrade)
+        )
+      })
+    }
+
+    // Filter by search term
+    if (classSearchTerm.trim()) {
+      const searchLower = classSearchTerm.toLowerCase().trim()
+      filtered = filtered.filter(classItem => {
+        // Search in class name, subjects, and class type
+        const nameMatch = classItem.name.toLowerCase().includes(searchLower)
+        const subjectMatch = classItem.subjects && classItem.subjects.some(subject => 
+          subject.name.toLowerCase().includes(searchLower)
+        )
+        const typeMatch = classItem.class_type.toLowerCase().includes(searchLower)
+        
+        return nameMatch || subjectMatch || typeMatch
+      })
+    }
+
+    return filtered
+  }, [availableClasses, selectedGrades, classSearchTerm])
 
   const handleGradeChange = (gradeValue, checked) => {
     const currentGrades = selectedGrades || []
@@ -375,106 +410,193 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
 
       {/* Class Assignment */}
       <Card>
-        <CardHeader>
-          <CardTitle>Class Assignment</CardTitle>
-          <p className="text-sm text-gray-600">
-            Select which classes this student should be enrolled in. You can set custom fees per class if needed.
-          </p>
+        <CardHeader 
+          className="cursor-pointer"
+          onClick={() => setIsClassSectionCollapsed(!isClassSectionCollapsed)}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                Class Assignment
+                {selectedClasses.size > 0 && (
+                  <Badge variant="secondary">
+                    {selectedClasses.size} selected
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Select which classes this student should be enrolled in. You can set custom fees per class if needed.
+              </p>
+            </div>
+            {isClassSectionCollapsed ? (
+              <ChevronDown className="h-5 w-5" />
+            ) : (
+              <ChevronUp className="h-5 w-5" />
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
-          {availableClasses.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              No classes available. Create some classes first.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {availableClasses.map((classItem) => (
-                <div key={classItem.id} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-                  <Checkbox
-                    checked={selectedClasses.has(classItem.id)}
-                    onCheckedChange={() => toggleClass(classItem.id)}
-                  />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-lg">{classItem.name}</h4>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{classItem.class_type}</Badge>
-                        <span className="font-semibold text-green-600">
-                          Rs. {customFees.get(classItem.id) || classItem.fee}/month
-                          {customFees.has(classItem.id) && (
-                            <span className="text-xs text-gray-500 ml-1">(custom)</span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Grades:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {(classItem.grades || []).map((grade) => (
-                            <Badge key={grade} variant="secondary" className="text-xs">
-                              Grade {grade}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Subjects:</span>
-                        <span className="text-sm text-gray-600">
-                          {renderClassSubjects(classItem.subjects)}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Schedule:</span>
-                        <div className="text-sm text-gray-600">
-                          {renderClassSchedules(classItem.class_schedules)}
-                        </div>
-                      </div>
+        
+        {!isClassSectionCollapsed && (
+          <CardContent>
+            {/* Search and Filter Info */}
+            <div className="mb-4 space-y-3">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search classes by name, subject, or type..."
+                  value={classSearchTerm}
+                  onChange={(e) => setClassSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
 
-                      {/* Custom Fee Input - Only show if class is selected */}
-                      {selectedClasses.has(classItem.id) && (
-                        <div className="flex items-center gap-2 mt-3 p-3 bg-blue-50 rounded-md">
-                          <Label htmlFor={`custom-fee-${classItem.id}`} className="text-sm font-medium whitespace-nowrap">
-                            Custom Fee (Rs.):
-                          </Label>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              id={`custom-fee-${classItem.id}`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder={`Default: ${classItem.fee}`}
-                              value={customFees.get(classItem.id) || ''}
-                              onChange={(e) => handleCustomFeeChange(classItem.id, e.target.value)}
-                              className="w-32"
-                            />
+              {/* Filter Status */}
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span>
+                  Showing {filteredClasses.length} of {availableClasses.length} classes
+                </span>
+                {selectedGrades.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    • Filtered by grades: 
+                    <div className="flex gap-1 ml-1">
+                      {selectedGrades.map((grade) => (
+                        <Badge key={grade} variant="outline" className="text-xs">
+                          {grade}
+                        </Badge>
+                      ))}
+                    </div>
+                  </span>
+                )}
+                {classSearchTerm && (
+                  <span>
+                    • Search: "{classSearchTerm}"
+                  </span>
+                )}
+              </div>
+
+              {/* Clear Filters */}
+              {(classSearchTerm || selectedGrades.length > 0) && (
+                <div className="flex gap-2">
+                  {classSearchTerm && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setClassSearchTerm('')}
+                    >
+                      Clear search
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {availableClasses.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">
+                No classes available. Create some classes first.
+              </p>
+            ) : filteredClasses.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-2">No classes match your criteria</p>
+                <p className="text-sm text-gray-400">
+                  Try adjusting your search term or selected grades
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {filteredClasses.map((classItem) => (
+                  <div key={classItem.id} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-gray-50">
+                    <Checkbox
+                      checked={selectedClasses.has(classItem.id)}
+                      onCheckedChange={() => toggleClass(classItem.id)}
+                    />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-lg">{classItem.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{classItem.class_type}</Badge>
+                          <span className="font-semibold text-green-600">
+                            Rs. {customFees.get(classItem.id) || classItem.fee}/month
                             {customFees.has(classItem.id) && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleCustomFeeChange(classItem.id, null)}
+                              <span className="text-xs text-gray-500 ml-1">(custom)</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Grades:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {(classItem.grades || []).map((grade) => (
+                              <Badge 
+                                key={grade} 
+                                variant={selectedGrades.includes(grade) ? "default" : "secondary"} 
                                 className="text-xs"
                               >
-                                Reset to default
-                              </Button>
-                            )}
+                                Grade {grade}
+                              </Badge>
+                            ))}
                           </div>
-                          <p className="text-xs text-gray-500">
-                            Leave empty to use default fee (Rs. {classItem.fee})
-                          </p>
                         </div>
-                      )}
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Subjects:</span>
+                          <span className="text-sm text-gray-600">
+                            {renderClassSubjects(classItem.subjects)}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Schedule:</span>
+                          <div className="text-sm text-gray-600">
+                            {renderClassSchedules(classItem.class_schedules)}
+                          </div>
+                        </div>
+
+                        {/* Custom Fee Input - Only show if class is selected */}
+                        {selectedClasses.has(classItem.id) && (
+                          <div className="flex items-center gap-2 mt-3 p-3 bg-blue-50 rounded-md">
+                            <Label htmlFor={`custom-fee-${classItem.id}`} className="text-sm font-medium whitespace-nowrap">
+                              Custom Fee (Rs.):
+                            </Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                id={`custom-fee-${classItem.id}`}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder={`Default: ${classItem.fee}`}
+                                value={customFees.get(classItem.id) || ''}
+                                onChange={(e) => handleCustomFeeChange(classItem.id, e.target.value)}
+                                className="w-32"
+                              />
+                              {customFees.has(classItem.id) && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleCustomFeeChange(classItem.id, null)}
+                                  className="text-xs"
+                                >
+                                  Reset to default
+                                </Button>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              Leave empty to use default fee (Rs. {classItem.fee})
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
     </div>
   )
