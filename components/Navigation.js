@@ -43,7 +43,7 @@ export default function Navigation() {
   const pathname = usePathname()
 
   return (
-    <nav className="bg-white border-b border-gray-200">
+    <nav className="bg-white border-b border-gray-200 fixed z-10 w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hidden sm:block">
         <div className="flex justify-between h-16">
           <div className="flex">

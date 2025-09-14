@@ -14,9 +14,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="min-h-screen bg-gray-50">
+        <div className=" bg-gray-50 overflow-y-auto min-h-[105vh]">
           <Navigation />
-          <main className="pb-8">
+          <main className="md:py-15">
             {children}
           </main>
         </div>

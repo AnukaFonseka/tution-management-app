@@ -594,7 +594,7 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-4 overflow-y-auto max-h-[50vh]">
                 {filteredClasses.map((classItem) => (
                   <div key={classItem.id} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-gray-50">
                     <Checkbox
@@ -647,11 +647,11 @@ export default function StudentForm({ initialData = null, isEditing = false }) {
 
                         {/* Custom Fee Input - Only show if class is selected */}
                         {selectedClasses.has(classItem.id) && (
-                          <div className="flex items-center gap-2 mt-3 p-3 bg-blue-50 rounded-md">
-                            <Label htmlFor={`custom-fee-${classItem.id}`} className="text-sm font-medium whitespace-nowrap">
+                          <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 mt-3 p-3 bg-blue-50 rounded-md">
+                            <Label htmlFor={`custom-fee-${classItem.id}`} className="text-xs md:text-sm font-medium whitespace-nowrap">
                               Custom Fee (Rs.):
                             </Label>
-                            <div className="flex items-center gap-2">
+                            <div className="md:flex items-center gap-2">
                               <Input
                                 id={`custom-fee-${classItem.id}`}
                                 type="number"
