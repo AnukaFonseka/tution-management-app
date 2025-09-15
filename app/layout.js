@@ -16,7 +16,7 @@ export default function RootLayout({ children }) {
       <body className={inter.className}>
         <div className=" bg-gray-50 overflow-y-auto min-h-[105vh]">
           <Navigation />
-          <main className="md:py-15">
+          <main className="md:py-15 md:px-20">
             {children}
           </main>
         </div>
