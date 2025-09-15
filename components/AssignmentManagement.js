@@ -165,12 +165,12 @@ export default function AssignmentManagement({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header with Create Button */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Assignments</h3>
-          <p className="text-sm text-gray-600">
+          <p className="hidden md:block text-sm text-gray-600">
             Manage assignments and track student progress
           </p>
         </div>
@@ -179,6 +179,9 @@ export default function AssignmentManagement({
           onAssignmentCreated={handleAssignmentCreated}
         />
       </div>
+      <p className="md:hidden text-sm text-gray-600">
+            Manage assignments and track student progress
+      </p>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">

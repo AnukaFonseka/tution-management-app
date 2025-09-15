@@ -276,7 +276,7 @@ export default function ClassDetailsPage() {
           {/* Stats */}
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>Revenue</CardTitle>
+              <CardTitle className="text-center md:text-start">Revenue</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-center">
@@ -314,7 +314,7 @@ export default function ClassDetailsPage() {
                   <CardTitle className="flex items-center justify-between">
                     <span>Enrolled Students ({students.length})</span>
                     <Link href="/students/new">
-                      <Button size="sm">Add New Student</Button>
+                      <Button size="sm"><span className="text-xs md:text-sm">Add New Student</span></Button>
                     </Link>
                   </CardTitle>
                 </CardHeader>
