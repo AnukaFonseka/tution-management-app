@@ -33,26 +33,27 @@ CREATE TABLE public.payments (
   paid_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT payments_pkey PRIMARY KEY (id),
-  CONSTRAINT payments_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id),
-  CONSTRAINT payments_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+  CONSTRAINT payments_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT payments_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
 );
 CREATE TABLE public.student_classes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   student_id uuid,
   class_id uuid,
   enrolled_at timestamp with time zone DEFAULT now(),
+  custom_fee numeric,
   CONSTRAINT student_classes_pkey PRIMARY KEY (id),
-  CONSTRAINT student_classes_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id),
-  CONSTRAINT student_classes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+  CONSTRAINT student_classes_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
+  CONSTRAINT student_classes_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
 );
 CREATE TABLE public.students (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name character varying NOT NULL,
-  grade character varying NOT NULL,
   phone character varying,
   parent_name character varying,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  grades ARRAY NOT NULL DEFAULT '{}'::integer[],
   CONSTRAINT students_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.subjects (

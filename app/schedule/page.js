@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar, Clock, Users, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
 import { DAYS_OF_WEEK, formatTime, formatDuration, getGradeLabels } from '@/lib/utils'
+import Link from 'next/link'
 
 export default function SchedulePage() {
   const [schedules, setSchedules] = useState([])
@@ -126,6 +127,7 @@ export default function SchedulePage() {
         key={schedule.id}
         className="p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
       >
+        <Link href={`/classes/${schedule.classes.id}`}>
         <div className="space-y-2">
           <div>
             <h4 className="font-medium text-blue-900">
@@ -167,6 +169,7 @@ export default function SchedulePage() {
             </div>
           )}
         </div>
+        </Link>
       </div>
     )
   }
