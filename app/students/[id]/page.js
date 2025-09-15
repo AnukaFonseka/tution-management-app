@@ -191,7 +191,7 @@ export default function StudentDetailsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-4">
-          <Link href="/students">
+          <Link href="/students" className="hidden md:block">
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Students
