@@ -7,14 +7,17 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Edit, Trash2, Users, Calendar, Clock, DollarSign, ArrowLeft } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Edit, Trash2, Users, Calendar, Clock, DollarSign, ArrowLeft, FileText } from 'lucide-react'
 import { getDayName, formatTime, formatDuration, renderClassSchedules } from '@/lib/utils'
+import AssignmentManagement from '@/components/AssignmentManagement'
 
 export default function ClassDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const [classData, setClassData] = useState(null)
   const [students, setStudents] = useState([])
+  const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -24,9 +27,10 @@ export default function ClassDetailsPage() {
     }
   }, [params.id])
 
+  // Fetch all class-related data in one go
   const fetchClassDetails = async () => {
     try {
-      // Get class details
+      // Get class details with schedules
       const { data: classInfo, error: classError } = await supabase
         .from('classes')
         .select(`
@@ -37,7 +41,7 @@ export default function ClassDetailsPage() {
             start_time,
             duration
           )
-          `)
+        `)
         .eq('id', params.id)
         .single()
 
@@ -53,12 +57,64 @@ export default function ClassDetailsPage() {
 
       if (studentsError) throw studentsError
 
+      // Get assignments with submissions
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('assignments')
+        .select(`
+          *,
+          assignment_submissions (
+            id,
+            student_id,
+            marks_obtained,
+            submitted_at,
+            remarks,
+            students (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('class_id', params.id)
+        .order('created_at', { ascending: false })
+
+      if (assignmentsError) throw assignmentsError
+
       setClassData(classInfo)
       setStudents(enrolledStudents.map(item => item.students))
+      setAssignments(assignmentsData || [])
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Function to refresh assignments when needed (e.g., after creating/updating)
+  const refreshAssignments = async () => {
+    try {
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('assignments')
+        .select(`
+          *,
+          assignment_submissions (
+            id,
+            student_id,
+            marks_obtained,
+            submitted_at,
+            remarks,
+            students (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('class_id', params.id)
+        .order('created_at', { ascending: false })
+
+      if (assignmentsError) throw assignmentsError
+      setAssignments(assignmentsData || [])
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -115,7 +171,13 @@ export default function ClassDetailsPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{classData.name}</h1>
-            <p className="text-gray-600">Grade {classData.grade}</p>
+            <div className="flex flex-wrap gap-1">
+              {(classData.grades || []).map((grade) => (
+                <Badge key={grade} variant="outline" className="text-xs">
+                  Grade {grade}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
         
@@ -159,16 +221,6 @@ export default function ClassDetailsPage() {
                 </div>
               </div>
 
-              {/* <div className="flex items-center">
-                <Clock className="w-5 h-5 text-gray-400 mr-3" />
-                <div>
-                  <p className="font-medium">Time</p>
-                  <p className="text-sm text-gray-600">
-                    {formatTime(classData.start_time)} ({formatDuration(classData.duration)})
-                  </p>
-                </div>
-              </div> */}
-
               <div className="flex items-center">
                 <DollarSign className="w-5 h-5 text-gray-400 mr-3" />
                 <div>
@@ -203,53 +255,77 @@ export default function ClassDetailsPage() {
           </Card>
         </div>
 
-        {/* Enrolled Students */}
+        {/* Main Content Area with Tabs */}
         <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Enrolled Students ({students.length})</span>
-                <Link href="/students/new">
-                  <Button size="sm">Add New Student</Button>
-                </Link>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {students.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No students enrolled</h3>
-                  <p className="text-gray-600 mb-4">
-                    This class doesn&apos;t have any students yet.
-                  </p>
-                  <Link href="/students/new">
-                    <Button>Add First Student</Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {students.map((student) => (
-                    <div key={student.id} className="p-4 border rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{student.name}</h4>
-                          <p className="text-sm text-gray-600">Grade {student.grade}</p>
-                          {student.phone && (
-                            <p className="text-sm text-gray-500">{student.phone}</p>
-                          )}
-                        </div>
-                        <div className="flex space-x-2">
-                          <Link href={`/students/${student.id}`}>
-                            <Button size="sm" variant="outline">View</Button>
-                          </Link>
-                        </div>
-                      </div>
+          <Tabs defaultValue="students" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="students" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Students ({students.length})
+              </TabsTrigger>
+              <TabsTrigger value="assignments" className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Assignments ({assignments.length})
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="students" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Enrolled Students ({students.length})</span>
+                    <Link href="/students/new">
+                      <Button size="sm">Add New Student</Button>
+                    </Link>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {students.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No students enrolled</h3>
+                      <p className="text-gray-600 mb-4">
+                        This class doesn&apos;t have any students yet.
+                      </p>
+                      <Link href="/students/new">
+                        <Button>Add First Student</Button>
+                      </Link>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {students.map((student) => (
+                        <div key={student.id} className="p-4 border rounded-lg hover:bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium">{student.name}</h4>
+                              <p className="text-sm text-gray-600">Grade {student.grade}</p>
+                              {student.phone && (
+                                <p className="text-sm text-gray-500">{student.phone}</p>
+                              )}
+                            </div>
+                            <div className="flex space-x-2">
+                              <Link href={`/students/${student.id}`}>
+                                <Button size="sm" variant="outline">View</Button>
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="assignments" className="mt-6">
+              <AssignmentManagement 
+                classId={classData.id} 
+                classData={classData}
+                assignments={assignments}
+                onAssignmentsChange={refreshAssignments}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
