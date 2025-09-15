@@ -142,46 +142,52 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-8">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Classes</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 md:pb-2">
+            <CardTitle className="text-sm font-medium">Classes</CardTitle>
+            <BookOpen className="hidden md:block h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalClasses}</div>
+            <div className="text-xl md:text-2xl font-bold">{stats.totalClasses}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 md:pb-2">
+            <CardTitle className="text-sm font-medium">Students</CardTitle>
+            <Users className="hidden md:block h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalStudents}</div>
+            <div className="text-xl md:text-2xl font-bold">{stats.totalStudents}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 md:pb-2">
+            <CardTitle className="md:flex text-sm font-medium">Pending<span className='hidden md:block'>&nbsp;Payments</span></CardTitle>
+            <CreditCard className="hidden md:block h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingPayments}</div>
+            <div className="text-xl md:text-2xl font-bold">{stats.pendingPayments}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        {/* <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 md:pb-2">
+            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+            <TrendingUp className="hidden md:block h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Rs. {stats.totalRevenue.toFixed(2)}</div>
+            <div className="text-xl md:text-2xl font-bold">Rs. {stats.totalRevenue}</div>
           </CardContent>
-        </Card>
+        </Card> */}
+      </div>
+      <div className="w-full text-center mb-6">
+        <p className="text-xs md:text-sm font-medium text-gray-600">Revenue</p>
+        <p className="text-lg md:text-2xl font-bold">
+          Rs. {stats.totalRevenue.toFixed(2)}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

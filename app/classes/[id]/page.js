@@ -191,7 +191,7 @@ export default function ClassDetailsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-4">
-          <Link href="/classes">
+          <Link href="/classes" className="hidden md:inline-block">
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Classes

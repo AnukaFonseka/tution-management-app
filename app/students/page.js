@@ -70,10 +70,10 @@ export default function StudentsPage() {
 
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-4 md:mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 hidden md:block">
             Manage student information and class enrollments
           </p>
         </div>
@@ -84,6 +84,9 @@ export default function StudentsPage() {
           </Button>
         </Link>
       </div>
+      <p className="text-gray-600 md:hidden mb-6 ">
+        Manage student information and class enrollments
+      </p>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6">
