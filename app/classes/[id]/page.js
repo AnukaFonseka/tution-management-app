@@ -1,39 +1,54 @@
 // src/app/classes/[id]/page.js
-'use client'
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Edit, Trash2, Users, Calendar, Clock, DollarSign, ArrowLeft, FileText } from 'lucide-react'
-import { getDayName, formatTime, formatDuration, renderClassSchedules } from '@/lib/utils'
-import AssignmentManagement from '@/components/AssignmentManagement'
+"use client";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Edit,
+  Trash2,
+  Users,
+  Calendar,
+  Clock,
+  DollarSign,
+  ArrowLeft,
+  FileText,
+} from "lucide-react";
+import {
+  getDayName,
+  formatTime,
+  formatDuration,
+  renderClassSchedules,
+} from "@/lib/utils";
+import AssignmentManagement from "@/components/AssignmentManagement";
 
 export default function ClassDetailsPage() {
-  const params = useParams()
-  const router = useRouter()
-  const [classData, setClassData] = useState(null)
-  const [students, setStudents] = useState([])
-  const [assignments, setAssignments] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const params = useParams();
+  const router = useRouter();
+  const [classData, setClassData] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (params.id) {
-      fetchClassDetails()
+      fetchClassDetails();
     }
-  }, [params.id])
+  }, [params.id]);
 
   // Fetch all class-related data in one go
   const fetchClassDetails = async () => {
     try {
       // Get class details with schedules
       const { data: classInfo, error: classError } = await supabase
-        .from('classes')
-        .select(`
+        .from("classes")
+        .select(
+          `
           *,
           class_schedules (
             id,
@@ -41,26 +56,30 @@ export default function ClassDetailsPage() {
             start_time,
             duration
           )
-        `)
-        .eq('id', params.id)
-        .single()
+        `
+        )
+        .eq("id", params.id)
+        .single();
 
-      if (classError) throw classError
+      if (classError) throw classError;
 
       // Get enrolled students
       const { data: enrolledStudents, error: studentsError } = await supabase
-        .from('student_classes')
-        .select(`
+        .from("student_classes")
+        .select(
+          `
           students(*)
-        `)
-        .eq('class_id', params.id)
+        `
+        )
+        .eq("class_id", params.id);
 
-      if (studentsError) throw studentsError
+      if (studentsError) throw studentsError;
 
       // Get assignments with submissions
       const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('assignments')
-        .select(`
+        .from("assignments")
+        .select(
+          `
           *,
           assignment_submissions (
             id,
@@ -73,28 +92,30 @@ export default function ClassDetailsPage() {
               name
             )
           )
-        `)
-        .eq('class_id', params.id)
-        .order('created_at', { ascending: false })
+        `
+        )
+        .eq("class_id", params.id)
+        .order("created_at", { ascending: false });
 
-      if (assignmentsError) throw assignmentsError
+      if (assignmentsError) throw assignmentsError;
 
-      setClassData(classInfo)
-      setStudents(enrolledStudents.map(item => item.students))
-      setAssignments(assignmentsData || [])
+      setClassData(classInfo);
+      setStudents(enrolledStudents.map((item) => item.students));
+      setAssignments(assignmentsData || []);
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Function to refresh assignments when needed (e.g., after creating/updating)
   const refreshAssignments = async () => {
     try {
       const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('assignments')
-        .select(`
+        .from("assignments")
+        .select(
+          `
           *,
           assignment_submissions (
             id,
@@ -107,59 +128,66 @@ export default function ClassDetailsPage() {
               name
             )
           )
-        `)
-        .eq('class_id', params.id)
-        .order('created_at', { ascending: false })
+        `
+        )
+        .eq("class_id", params.id)
+        .order("created_at", { ascending: false });
 
-      if (assignmentsError) throw assignmentsError
-      setAssignments(assignmentsData || [])
+      if (assignmentsError) throw assignmentsError;
+      setAssignments(assignmentsData || []);
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     }
-  }
+  };
 
   const deleteClass = async () => {
-    if (!confirm('Are you sure you want to delete this class? This will also remove all student enrollments and payment records.')) {
-      return
+    if (
+      !confirm(
+        "Are you sure you want to delete this class? This will also remove all student enrollments and payment records."
+      )
+    ) {
+      return;
     }
 
     try {
       const { error } = await supabase
-        .from('classes')
+        .from("classes")
         .delete()
-        .eq('id', params.id)
+        .eq("id", params.id);
 
-      if (error) throw error
-      
-      router.push('/classes')
+      if (error) throw error;
+
+      router.push("/classes");
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
-    )
+    );
   }
 
   if (!classData) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Class Not Found</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Class Not Found
+          </h1>
           <Link href="/classes">
             <Button>Back to Classes</Button>
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center space-x-4">
@@ -170,7 +198,9 @@ export default function ClassDetailsPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{classData.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {classData.name}
+            </h1>
             <div className="flex flex-wrap gap-1">
               {(classData.grades || []).map((grade) => (
                 <Badge key={grade} variant="outline" className="text-xs">
@@ -180,7 +210,7 @@ export default function ClassDetailsPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="flex space-x-2">
           <Link href={`/classes/${classData.id}/edit`}>
             <Button variant="outline">
@@ -217,7 +247,9 @@ export default function ClassDetailsPage() {
                 <Calendar className="w-5 h-5 text-gray-400 mr-3" />
                 <div>
                   <p className="font-medium">Schedules</p>
-                  <p className="text-sm text-gray-600 flex flex-col">{renderClassSchedules(classData.class_schedules)}</p>
+                  <p className="text-sm text-gray-600 flex flex-col">
+                    {renderClassSchedules(classData.class_schedules)}
+                  </p>
                 </div>
               </div>
 
@@ -233,7 +265,9 @@ export default function ClassDetailsPage() {
                 <Users className="w-5 h-5 text-gray-400 mr-3" />
                 <div>
                   <p className="font-medium">Enrolled Students</p>
-                  <p className="text-sm text-gray-600">{students.length} students</p>
+                  <p className="text-sm text-gray-600">
+                    {students.length} students
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -249,7 +283,9 @@ export default function ClassDetailsPage() {
                 <p className="text-2xl font-bold text-green-600">
                   Rs. {(classData.fee * students.length).toFixed(2)}
                 </p>
-                <p className="text-sm text-gray-600">Potential Monthly Revenue</p>
+                <p className="text-sm text-gray-600">
+                  Potential Monthly Revenue
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -263,12 +299,15 @@ export default function ClassDetailsPage() {
                 <Users className="w-4 h-4" />
                 Students ({students.length})
               </TabsTrigger>
-              <TabsTrigger value="assignments" className="flex items-center gap-2">
+              <TabsTrigger
+                value="assignments"
+                className="flex items-center gap-2"
+              >
                 <FileText className="w-4 h-4" />
                 Assignments ({assignments.length})
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="students" className="mt-6">
               <Card>
                 <CardHeader>
@@ -283,7 +322,9 @@ export default function ClassDetailsPage() {
                   {students.length === 0 ? (
                     <div className="text-center py-8">
                       <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No students enrolled</h3>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        No students enrolled
+                      </h3>
                       <p className="text-gray-600 mb-4">
                         This class doesn&apos;t have any students yet.
                       </p>
@@ -294,18 +335,27 @@ export default function ClassDetailsPage() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {students.map((student) => (
-                        <div key={student.id} className="p-4 border rounded-lg hover:bg-gray-50">
+                        <div
+                          key={student.id}
+                          className="p-4 border rounded-lg hover:bg-gray-50"
+                        >
                           <div className="flex items-center justify-between">
                             <div>
                               <h4 className="font-medium">{student.name}</h4>
-                              <p className="text-sm text-gray-600">Grade {student.grade}</p>
+                              <p className="text-sm text-gray-600">
+                                Grade {student.grade}
+                              </p>
                               {student.phone && (
-                                <p className="text-sm text-gray-500">{student.phone}</p>
+                                <p className="text-sm text-gray-500">
+                                  {student.phone}
+                                </p>
                               )}
                             </div>
                             <div className="flex space-x-2">
                               <Link href={`/students/${student.id}`}>
-                                <Button size="sm" variant="outline">View</Button>
+                                <Button size="sm" variant="outline">
+                                  View
+                                </Button>
                               </Link>
                             </div>
                           </div>
@@ -316,10 +366,10 @@ export default function ClassDetailsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="assignments" className="mt-6">
-              <AssignmentManagement 
-                classId={classData.id} 
+              <AssignmentManagement
+                classId={classData.id}
                 classData={classData}
                 assignments={assignments}
                 onAssignmentsChange={refreshAssignments}
@@ -329,5 +379,5 @@ export default function ClassDetailsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

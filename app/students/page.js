@@ -1,76 +1,81 @@
 // src/app/students/page.js
-'use client'
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Plus, Edit, Trash2, Users, Phone, User } from 'lucide-react'
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Edit, Trash2, Users, Phone, User } from "lucide-react";
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchStudents()
-  }, [])
+    fetchStudents();
+  }, []);
 
   const fetchStudents = async () => {
     try {
       const { data, error } = await supabase
-        .from('students')
-        .select(`
+        .from("students")
+        .select(
+          `
           *,
           student_classes(
             classes(name, fee)
           )
-        `)
-        .order('name')
+        `
+        )
+        .order("name");
 
-      if (error) throw error
-      setStudents(data || [])
+      if (error) throw error;
+      setStudents(data || []);
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const deleteStudent = async (id) => {
-    if (!confirm('Are you sure you want to delete this student? This will also remove all class enrollments and payment records.')) {
-      return
+    if (
+      !confirm(
+        "Are you sure you want to delete this student? This will also remove all class enrollments and payment records."
+      )
+    ) {
+      return;
     }
 
     try {
-      const { error } = await supabase
-        .from('students')
-        .delete()
-        .eq('id', id)
+      const { error } = await supabase.from("students").delete().eq("id", id);
 
-      if (error) throw error
-      
-      setStudents(students.filter(student => student.id !== id))
+      if (error) throw error;
+
+      setStudents(students.filter((student) => student.id !== id));
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-          <p className="text-gray-600">Manage student information and class enrollments</p>
+          <p className="text-gray-600">
+            Manage student information and class enrollments
+          </p>
         </div>
         <Link href="/students/new">
           <Button>
@@ -90,8 +95,12 @@ export default function StudentsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Users className="w-12 h-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No students yet</h3>
-            <p className="text-gray-600 mb-4">Start by adding your first student</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No students yet
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Start by adding your first student
+            </p>
             <Link href="/students/new">
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
@@ -103,12 +112,17 @@ export default function StudentsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {students.map((student) => (
-            <Card key={student.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={student.id}
+              className="hover:shadow-md transition-shadow"
+            >
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-lg">{student.name}</CardTitle>
-                    <p className="text-sm text-gray-600">Grade {student.grade}</p>
+                    <p className="text-sm text-gray-600">
+                      Grade {student.grade}
+                    </p>
                   </div>
                 </div>
               </CardHeader>
@@ -133,19 +147,26 @@ export default function StudentsPage() {
                 </div>
 
                 {/* Enrolled Classes */}
-                {student.student_classes && student.student_classes.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-xs text-gray-500 mb-2">Enrolled Classes:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {student.student_classes.map((enrollment, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {enrollment.classes?.name}
-                        </Badge>
-                      ))}
+                {student.student_classes &&
+                  student.student_classes.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-500 mb-2">
+                        Enrolled Classes:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {student.student_classes.map((enrollment, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {enrollment.classes?.name}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                
+                  )}
+
                 <div className="flex gap-2">
                   <Link href={`/students/${student.id}`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full">
@@ -172,5 +193,5 @@ export default function StudentsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
