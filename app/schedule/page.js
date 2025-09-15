@@ -129,6 +129,19 @@ export default function SchedulePage() {
     return { totalSchedules, totalStudents, totalDuration, totalRevenue };
   };
 
+  const formatDuration = (minutes) => {
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    if (hrs > 0 && mins > 0) {
+      return `${hrs}h ${mins}m`;
+    } else if (hrs > 0) {
+      return `${hrs}h`;
+    } else {
+      return `${mins}m`;
+    }
+  };
+
   // Mobile navigation functions
   const goToPreviousDay = () => {
     setSelectedDayIndex((prev) => (prev === 0 ? 6 : prev - 1));
@@ -347,7 +360,7 @@ export default function SchedulePage() {
 
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <h3 className="text-2xl font-bold text-purple-600">
-                  {stats.totalDuration} min
+                  {formatDuration(stats.totalDuration)}
                 </h3>
                 <p className="text-sm text-purple-600">Weekly Teaching Time</p>
               </div>
