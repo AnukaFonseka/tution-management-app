@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, BookOpen, CreditCard, Calendar, TrendingUp,  } from 'lucide-react'
+import Link from "next/link";
 import { getDayName, formatTime } from '@/lib/utils'
 
 export default function Dashboard() {
@@ -22,109 +23,20 @@ export default function Dashboard() {
   }, [])
 
   const fetchDashboardData = async () => {
-    try {
-      // Get total classes
-      const { count: classesCount } = await supabase
-        .from('classes')
-        .select('*', { count: 'exact', head: true })
-
-      // Get total students
-      const { count: studentsCount } = await supabase
-        .from('students')
-        .select('*', { count: 'exact', head: true })
-
-      // Get pending payments for current month
-      const currentMonth = new Date().getMonth() + 1
-      const currentYear = new Date().getFullYear()
-      
-      const { count: pendingCount } = await supabase
-        .from('payments')
-        .select('*', { count: 'exact', head: true })
-        .eq('month', currentMonth)
-        .eq('year', currentYear)
-        .eq('status', 'pending')
-
-      // Get total revenue for current month
-      const { data: paidPayments } = await supabase
-        .from('payments')
-        .select('amount')
-        .eq('month', currentMonth)
-        .eq('year', currentYear)
-        .eq('status', 'paid')
-
-      const totalRevenue = paidPayments?.reduce((sum, payment) => sum + parseFloat(payment.amount), 0) || 0
-
-      // Get today's classes
-      const today = new Date().getDay()
-      const { data: schedulesData, error } = await supabase
-        .from("class_schedules")
-        .select(`
-          id,
-          day_of_week,
-          start_time,
-          duration,
-          classes (
-            id,
-            name,
-            grades,
-            fee,
-            student_classes(count)
-          )
-        `)
-        .eq("day_of_week", today)
-        .order("start_time");
-
-      if (error) {
-        console.error(error);
-      } else {
-        console.log(schedulesData);
-      }
-
-      // Get all subject data
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from('subjects')
-        .select('id, name')
-
-      if (subjectsError) throw subjectsError
-
-      // Merge subject data with schedules
-      const schedulesWithSubjects = schedulesData.map(schedule => ({
-        ...schedule,
-        classes: {
-          ...schedule.classes,
-          subjects: schedule.classes.subject_ids?.map(subjectId => 
-            subjectsData.find(subject => subject.id === subjectId)
-          ).filter(Boolean) || []
-        }
-      }))
-
-      // Get recent payments (last 5)
-      const { data: paymentsData } = await supabase
-        .from('payments')
-        .select(`
-          *,
-          students(name),
-          classes(name)
-        `)
-        .eq('status', 'paid')
-        .order('paid_at', { ascending: false })
-        .limit(5)
-
-      setStats({
-        totalClasses: classesCount || 0,
-        totalStudents: studentsCount || 0,
-        pendingPayments: pendingCount || 0,
-        totalRevenue
-      })
-      
-      setTodaysClasses(schedulesWithSubjects || [])
-      setRecentPayments(paymentsData || [])
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error)
-    } finally {
-      setLoading(false)
-    }
+  try {
+    const { data, error } = await supabase.rpc('get_dashboard_data')
+    
+    if (error) throw error
+    
+    setStats(data.stats)
+    setTodaysClasses(data.todaysClasses)
+    setRecentPayments(data.recentPayments)
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   if (loading) {
     return (
@@ -143,33 +55,36 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 md:pb-2">
+        <Card className="justify-center md:justify-start">
+          <CardHeader className="hidden md:flex flex-row items-center justify-between space-y-0 md:pb-2">
             <CardTitle className="text-sm font-medium">Classes</CardTitle>
-            <BookOpen className="hidden md:block h-4 w-4 text-muted-foreground" />
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="text-center md:text-start" >
             <div className="text-xl md:text-2xl font-bold">{stats.totalClasses}</div>
+            <p className="text-xs md:text-sm font-medium text-gray-600 md:hidden">Classes</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 md:pb-2">
+        <Card className="justify-center md:justify-start">
+          <CardHeader className="hidden md:flex flex-row items-center justify-between space-y-0 md:pb-2">
             <CardTitle className="text-sm font-medium">Students</CardTitle>
-            <Users className="hidden md:block h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="text-center md:text-start">
             <div className="text-xl md:text-2xl font-bold">{stats.totalStudents}</div>
+            <p className="text-xs md:text-sm font-medium text-gray-600 md:hidden">Students</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 md:pb-2">
+          <CardHeader className="hidden md:flex flex-row items-center justify-between space-y-0 md:pb-2">
             <CardTitle className="md:flex text-sm font-medium">Pending<span className='hidden md:block'>&nbsp;Payments</span></CardTitle>
             <CreditCard className="hidden md:block h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="text-center md:text-start">
             <div className="text-xl md:text-2xl font-bold">{stats.pendingPayments}</div>
+            <p className="text-xs md:text-sm font-medium text-gray-600 md:hidden">Students</p>
           </CardContent>
         </Card>
 
@@ -205,7 +120,7 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {todaysClasses.map((classItem) => (
-                  <div key={classItem.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <Link href={`/classes/${classItem.classes.id}`} key={classItem.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <h4 className="font-medium">{classItem.classes.name}</h4>
                       <p className="text-sm text-gray-600">Grade {classItem.classes.grades}</p>
@@ -218,7 +133,7 @@ export default function Dashboard() {
                         {classItem.classes.student_classes?.[0]?.count || 0}
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -239,7 +154,7 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {recentPayments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <Link href={`/students/${payment.students.id}`} key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <h4 className="font-medium">{payment.students?.name}</h4>
                       <p className="text-sm text-gray-600">{payment.classes?.name}</p>
@@ -250,7 +165,7 @@ export default function Dashboard() {
                         {new Date(payment.paid_at).toLocaleDateString()}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
