@@ -127,7 +127,7 @@ export default function ClassesPage() {
           {classes.map((classItem) => (
             <Card
               key={classItem.id}
-              className="hover:shadow-md transition-shadow"
+              className="hover:bg-gray-50 justify-between"
             >
               <CardHeader>
                 <div className="flex justify-between items-start">

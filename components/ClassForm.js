@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Trash2, Plus } from 'lucide-react'
+import { Toggle } from '@/components/ui/toggle'
+import { Trash2, Plus, CheckIcon } from 'lucide-react'
 import { DAYS_OF_WEEK, GRADES, CLASS_TYPES, getDayName } from '@/lib/utils'
 
 export default function ClassForm({ initialData = null, isEditing = false }) {
@@ -149,12 +150,21 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
     }
   }
 
-  const handleGradeChange = (gradeValue, checked) => {
+  const handleGradeToggle = (gradeValue) => {
     const currentGrades = watchedGrades || []
-    if (checked) {
-      setValue('grades', [...currentGrades, gradeValue])
-    } else {
+    if (currentGrades.includes(gradeValue)) {
       setValue('grades', currentGrades.filter(g => g !== gradeValue))
+    } else {
+      setValue('grades', [...currentGrades, gradeValue])
+    }
+  }
+
+  const handleSubjectToggle = (subjectId) => {
+    const currentSubjects = watchedSubjects || []
+    if (currentSubjects.includes(subjectId)) {
+      setValue('subject_ids', currentSubjects.filter(s => s !== subjectId))
+    } else {
+      setValue('subject_ids', [...currentSubjects, subjectId])
     }
   }
 
@@ -184,7 +194,7 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
 
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div className='space-y-1'>
               <Label htmlFor="name">Class Name *</Label>
               <Input
                 id="name"
@@ -196,13 +206,14 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
               )}
             </div>
 
-            <div>
+            <div className='space-y-1'>
               <Label htmlFor="class_type">Class Type *</Label>
               <Select
                 onValueChange={(value) => setValue('class_type', value)}
                 defaultValue={watch('class_type')}
+                className="w-full"
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select class type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -222,27 +233,24 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
           {/* Grades Selection */}
           <div>
             <Label>Grades *</Label>
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mt-2">
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 mt-2">
               {GRADES.map((grade) => (
-                <div key={grade.value} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`grade-${grade.value}`}
-                    checked={watchedGrades?.includes(grade.value) || false}
-                    onCheckedChange={(checked) => handleGradeChange(grade.value, checked)}
-                  />
-                  <Label 
-                    htmlFor={`grade-${grade.value}`}
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    {grade.value}
-                  </Label>
-                </div>
+                <Toggle
+                  key={grade.value}
+                  pressed={watchedGrades?.includes(grade.value) || false}
+                  onPressedChange={() => handleGradeToggle(grade.value)}
+                  variant="outline"
+                  size="sm"
+                  className="md:h-9 md:px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  {grade.value}
+                </Toggle>
               ))}
             </div>
             {watchedGrades?.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
+              <div className="mt-3 flex flex-wrap gap-1">
                 {watchedGrades.map((grade) => (
-                  <Badge key={grade} variant="secondary">
+                  <Badge key={grade} variant="secondary" className="text-xs">
                     Grade {grade}
                   </Badge>
                 ))}
@@ -253,45 +261,45 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
             )}
           </div>
 
-          {/* Subjects Selection */}
+          {/* Subjects Selection with Toggle Buttons */}
           <div>
             <Label>Subjects *</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
+            <div className="space-x-1 space-y-2 gap-2 mt-2">
               {subjects.map((subject) => (
-                <div key={subject.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`subject-${subject.id}`}
-                    checked={watchedSubjects?.includes(subject.id) || false}
-                    onCheckedChange={(checked) => handleSubjectChange(subject.id, checked)}
-                  />
-                  <Label 
-                    htmlFor={`subject-${subject.id}`}
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    {subject.name}
-                  </Label>
-                </div>
+                <Toggle
+                  key={subject.id}
+                  pressed={watchedSubjects?.includes(subject.id) || false}
+                  onPressedChange={() => handleSubjectToggle(subject.id)}
+                  variant="outline"
+                  size="sm"
+                  className="md:h-10 px-4 justify-start text-left font-normal data-[state=on]:bg-blue-100 data-[state=on]:text-blue-900 data-[state=on]:border-blue-300 hover:bg-gray-50 rounded-full w-fit"
+                >
+                  {
+                    watchedSubjects?.includes(subject.id) && (<CheckIcon className="size-3" />)
+                  }
+                  {subject.name}
+                </Toggle>
               ))}
             </div>
-            {watchedSubjects?.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
+            {/* {watchedSubjects?.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1">
                 {watchedSubjects.map((subjectId) => {
                   const subject = subjects.find(s => s.id === subjectId)
                   return subject ? (
-                    <Badge key={subjectId} variant="secondary">
+                    <Badge key={subjectId} variant="secondary" className="text-xs">
                       {subject.name}
                     </Badge>
                   ) : null
                 })}
               </div>
-            )}
+            )} */}
             {errors.subject_ids && (
               <p className="text-sm text-red-600 mt-1">{errors.subject_ids.message}</p>
             )}
           </div>
 
           {/* Fee */}
-          <div>
+          <div  className='space-y-1'>
             <Label htmlFor="fee">Monthly Fee (Rs.) *</Label>
             <Input
               id="fee"
@@ -325,13 +333,14 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
               <Card key={field.id} className="mb-4 shadow-non">
                 <CardContent className="pt-4">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
+                    <div  className='space-y-1'>
                       <Label htmlFor={`schedules.${index}.day_of_week`}>Day</Label>
                       <Select
                         onValueChange={(value) => setValue(`schedules.${index}.day_of_week`, parseInt(value))}
                         defaultValue={watch(`schedules.${index}.day_of_week`)?.toString()}
+                        className="w-full"
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select day" />
                         </SelectTrigger>
                         <SelectContent>
@@ -344,7 +353,7 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
                       </Select>
                     </div>
 
-                    <div>
+                    <div className='space-y-1'>
                       <Label htmlFor={`schedules.${index}.start_time`}>Start Time</Label>
                       <Input
                         id={`schedules.${index}.start_time`}
@@ -353,7 +362,7 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
                       />
                     </div>
 
-                    <div>
+                    <div className='space-y-1'>
                       <Label htmlFor={`schedules.${index}.duration`}>Duration (min)</Label>
                       <Input
                         id={`schedules.${index}.duration`}
@@ -365,13 +374,14 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
                       />
                     </div>
 
-                    <div className="flex items-end">
+                    <div className="flex items-end pb-2">
                       <Button
                         type="button"
                         variant="destructive"
                         size="sm"
                         onClick={() => remove(index)}
                         disabled={fields.length === 1}
+                        className="w-full md:w-auto"  
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

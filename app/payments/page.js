@@ -184,10 +184,10 @@ export default function PaymentsPage() {
               <Button
                 size="sm"
                 onClick={() => updatePaymentStatus(payment.id, "paid")}
-                className="bg-green-600 hover:bg-green-700 text-white w-full"
+                className="bg-green-600 hover:bg-green-700 text-white w-fit"
               >
                 <Check className="w-4 h-4 mr-1" />
-                Paid
+                Mark As Paid
               </Button>
             ) : (
               <Button

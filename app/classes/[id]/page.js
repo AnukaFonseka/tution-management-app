@@ -71,7 +71,7 @@ export default function ClassDetailsPage() {
           students(*)
         `
         )
-        .eq("class_id", params.id);
+        .eq("class_id", params.id)
 
       if (studentsError) throw studentsError;
 
