@@ -186,7 +186,7 @@ export default function PaymentsPage() {
                 onClick={() => updatePaymentStatus(payment.id, "paid")}
                 className="bg-green-600 hover:bg-green-700 text-white w-fit"
               >
-                <Check className="w-4 h-4 mr-1" />
+                {/* <Check className="w-4 h-4 mr-1" /> */}
                 Mark As Paid
               </Button>
             ) : (
@@ -196,7 +196,7 @@ export default function PaymentsPage() {
                 onClick={() => updatePaymentStatus(payment.id, "pending")}
                 className="text-gray-600 w-full"
               >
-                <X className="w-4 h-4 mr-1" />
+                {/* <X className="w-4 h-4 mr-1" /> */}
                 Undo
               </Button>
             )}

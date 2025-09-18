@@ -17,6 +17,10 @@ import {
   DollarSign,
   ArrowLeft,
   FileText,
+  Check,
+  X,
+  Info,
+  InfoIcon,
 } from "lucide-react";
 import {
   getDayName,
@@ -32,14 +36,17 @@ export default function ClassDetailsPage() {
   const [classData, setClassData] = useState(null);
   const [students, setStudents] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     if (params.id) {
       fetchClassDetails();
     }
-  }, [params.id]);
+  }, [params.id, selectedMonth, selectedYear]);
 
   // Fetch all class-related data in one go
   const fetchClassDetails = async () => {
@@ -71,7 +78,7 @@ export default function ClassDetailsPage() {
           students(*)
         `
         )
-        .eq("class_id", params.id)
+        .eq("class_id", params.id);
 
       if (studentsError) throw studentsError;
 
@@ -99,9 +106,20 @@ export default function ClassDetailsPage() {
 
       if (assignmentsError) throw assignmentsError;
 
+      // Get current month's payments for this class
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("class_id", params.id)
+        .eq("month", selectedMonth)
+        .eq("year", selectedYear);
+
+      if (paymentsError) throw paymentsError;
+
       setClassData(classInfo);
       setStudents(enrolledStudents.map((item) => item.students));
       setAssignments(assignmentsData || []);
+      setPayments(paymentsData || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -137,6 +155,109 @@ export default function ClassDetailsPage() {
       setAssignments(assignmentsData || []);
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  // Get payment status for a student
+  const getStudentPaymentStatus = (studentId) => {
+    const payment = payments.find((p) => p.student_id === studentId);
+    return payment ? payment.status : "pending";
+  };
+
+  // Get payment ID for a student
+  const getStudentPaymentId = (studentId) => {
+    const payment = payments.find((p) => p.student_id === studentId);
+    return payment ? payment.id : null;
+  };
+
+  // Create or update payment status
+  const updatePaymentStatus = async (studentId, newStatus) => {
+    try {
+      const existingPayment = payments.find((p) => p.student_id === studentId);
+      
+      if (existingPayment) {
+        // Update existing payment
+        const updateData = {
+          status: newStatus,
+          ...(newStatus === "paid"
+            ? { paid_at: new Date().toISOString() }
+            : { paid_at: null }),
+        };
+
+        const { error } = await supabase
+          .from("payments")
+          .update(updateData)
+          .eq("id", existingPayment.id);
+
+        if (error) throw error;
+
+        // Update local state
+        setPayments(
+          payments.map((payment) =>
+            payment.id === existingPayment.id
+              ? { ...payment, ...updateData }
+              : payment
+          )
+        );
+      } else {
+        // Create new payment record
+        const newPayment = {
+          student_id: studentId,
+          class_id: params.id,
+          month: selectedMonth,
+          year: selectedYear,
+          amount: classData.fee,
+          status: newStatus,
+          ...(newStatus === "paid"
+            ? { paid_at: new Date().toISOString() }
+            : { paid_at: null }),
+        };
+
+        const { data, error } = await supabase
+          .from("payments")
+          .insert([newPayment])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Add to local state
+        setPayments([...payments, data]);
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Get payment status badge
+  const getPaymentStatusBadge = (status) => {
+    switch (status) {
+      case "paid":
+        return (
+          <Badge className="bg-green-100 text-green-800 text-xs">
+            <Check className="w-3 h-3 inline-block" />
+            Paid
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge className="bg-yellow-50 text-yellow-600 text-xs">
+            <InfoIcon className="w-3 h-3 inline-block" />
+            Pending
+          </Badge>
+        );
+      case "overdue":
+        return (
+          <Badge className="bg-red-100 text-red-800 text-xs">
+            Overdue
+          </Badge>
+        );
+      default:
+        return (
+          <Badge className="bg-yellow-50 text-yellow-600 text-xs">
+            Pending
+          </Badge>
+        );
     }
   };
 
@@ -185,6 +306,13 @@ export default function ClassDetailsPage() {
       </div>
     );
   }
+
+  // Get current month name
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  const currentMonthName = months[selectedMonth - 1];
 
   return (
     <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -314,9 +442,14 @@ export default function ClassDetailsPage() {
                   <CardTitle className="flex items-center justify-between">
                     <span>Enrolled Students ({students.length})</span>
                     <Link href="/students/new">
-                      <Button size="sm"><span className="text-xs md:text-sm">Add New Student</span></Button>
+                      <Button size="sm">
+                        <span className="text-xs md:text-sm">Add New Student</span>
+                      </Button>
                     </Link>
                   </CardTitle>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Payment status for {currentMonthName} {selectedYear}
+                  </p>
                 </CardHeader>
                 <CardContent>
                   {students.length === 0 ? (
@@ -333,34 +466,74 @@ export default function ClassDetailsPage() {
                       </Link>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {students.map((student) => (
-                        <div
-                          key={student.id}
-                          className="p-4 border rounded-lg hover:bg-gray-50"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium">{student.name}</h4>
-                              <p className="text-sm text-gray-600">
-                                Grade {student.grade}
-                              </p>
-                              {student.phone && (
-                                <p className="text-sm text-gray-500">
-                                  {student.phone}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex space-x-2">
-                              <Link href={`/students/${student.id}`}>
-                                <Button size="sm" variant="outline">
-                                  View
-                                </Button>
-                              </Link>
+                    <div className="space-y-4">
+                      {students.map((student) => {
+                        const paymentStatus = getStudentPaymentStatus(student.id);
+                        return (
+                          <div
+                            key={student.id}
+                            className="p-4 border rounded-lg hover:bg-gray-50"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3">
+                                  <div>
+                                    <h4 className="font-medium">{student.name}</h4>
+                                    <p className="text-sm text-gray-600">
+                                      Grade {student.grade}
+                                    </p>
+                                    {student.phone && (
+                                      <p className="text-sm text-gray-500">
+                                        {student.phone}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="ml-4 hidden md:block">
+                                    {getPaymentStatusBadge(paymentStatus)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex flex-col md:flex-row items-end md:items-center md:space-x-2 space-y-1 md:space-y-0">
+                                <div className="ml-4 md:hidden">
+                                  {getPaymentStatusBadge(paymentStatus)}
+                                </div>
+                                {/* Payment Action Button */}
+                                {paymentStatus !== "paid" ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      updatePaymentStatus(student.id, "paid")
+                                    }
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                  >
+                                    {/* <Check className="w-4 h-4 mr-1" /> */}
+                                    Mark Paid
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      updatePaymentStatus(student.id, "pending")
+                                    }
+                                    className="text-gray-600"
+                                  >
+                                    <X className="w-4 h-4 mr-1" />
+                                    Undo
+                                  </Button>
+                                )}
+                                
+                                {/* View Student Button */}
+                                <Link href={`/students/${student.id}`} className="hidden md:inline-block">
+                                  <Button size="sm" variant="outline">
+                                    View
+                                  </Button>
+                                </Link>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
