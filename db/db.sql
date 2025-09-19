@@ -1,6 +1,34 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.assignment_submissions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  assignment_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  marks_obtained numeric,
+  submitted_at timestamp with time zone,
+  remarks text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT assignment_submissions_pkey PRIMARY KEY (id),
+  CONSTRAINT assignment_submissions_assignment_id_fkey FOREIGN KEY (assignment_id) REFERENCES public.assignments(id),
+  CONSTRAINT assignment_submissions_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
+);
+CREATE TABLE public.assignments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  class_id uuid NOT NULL,
+  name character varying NOT NULL,
+  assignment_type character varying NOT NULL CHECK (assignment_type::text = ANY (ARRAY['Paper'::character varying::text, 'Homework'::character varying::text, 'Assignment'::character varying::text])),
+  given_date date NOT NULL,
+  deadline date NOT NULL,
+  document_url text,
+  description text,
+  total_marks numeric DEFAULT 100,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT assignments_pkey PRIMARY KEY (id),
+  CONSTRAINT assignments_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
+);
 CREATE TABLE public.class_schedules (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   class_id uuid,
