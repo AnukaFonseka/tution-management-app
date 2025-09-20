@@ -1,4 +1,4 @@
-// src/components/ClassForm.js
+// components/ClassForm.js
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -6,6 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { classSchema } from '@/lib/validations'
 import { supabase } from '@/lib/supabase'
+import { fetchGrades, fetchSubjects } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,11 +16,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Toggle } from '@/components/ui/toggle'
 import { Trash2, Plus, CheckIcon } from 'lucide-react'
-import { DAYS_OF_WEEK, GRADES, CLASS_TYPES, getDayName } from '@/lib/utils'
+import { DAYS_OF_WEEK, CLASS_TYPES, getDayName } from '@/lib/utils'
 
 export default function ClassForm({ initialData = null, isEditing = false }) {
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
   const [error, setError] = useState('')
+  const [grades, setGrades] = useState([])
   const [subjects, setSubjects] = useState([])
   const router = useRouter()
 
@@ -50,24 +53,46 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
   const watchedGrades = watch('grades')
   const watchedSubjects = watch('subject_ids')
 
-  // Fetch subjects on component mount
+  // Fetch grades and subjects on component mount
   useEffect(() => {
-    const fetchSubjects = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
-          .from('subjects')
-          .select('*')
-          .order('name')
+        setDataLoading(true)
+        const [gradesData, subjectsData] = await Promise.all([
+          fetchGrades(),
+          fetchSubjects()
+        ])
         
-        if (error) throw error
-        setSubjects(data || [])
+        setGrades(gradesData)
+        setSubjects(subjectsData)
+
+        // If editing, convert grade names to IDs for the form
+        if (isEditing && initialData) {
+          // Convert legacy grade numbers to IDs if needed
+          if (initialData.grades && initialData.grades.length > 0) {
+            if (typeof initialData.grades[0] === 'number') {
+              // Legacy format - convert grade numbers to grade IDs
+              const gradeNames = initialData.grades.map(num => `Grade ${num}`)
+              const matchingGrades = gradesData.filter(grade => 
+                gradeNames.includes(grade.name)
+              )
+              setValue('grades', matchingGrades.map(g => g.id))
+            } else {
+              // Already using IDs
+              setValue('grades', initialData.grades)
+            }
+          }
+        }
       } catch (err) {
-        console.error('Error fetching subjects:', err)
+        console.error('Error fetching data:', err)
+        setError('Failed to load form data. Please refresh the page.')
+      } finally {
+        setDataLoading(false)
       }
     }
 
-    fetchSubjects()
-  }, [])
+    fetchData()
+  }, [isEditing, initialData, setValue])
 
   const onSubmit = async (data) => {
     setLoading(true)
@@ -150,12 +175,12 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
     }
   }
 
-  const handleGradeToggle = (gradeValue) => {
+  const handleGradeToggle = (gradeId) => {
     const currentGrades = watchedGrades || []
-    if (currentGrades.includes(gradeValue)) {
-      setValue('grades', currentGrades.filter(g => g !== gradeValue))
+    if (currentGrades.includes(gradeId)) {
+      setValue('grades', currentGrades.filter(g => g !== gradeId))
     } else {
-      setValue('grades', [...currentGrades, gradeValue])
+      setValue('grades', [...currentGrades, gradeId])
     }
   }
 
@@ -168,13 +193,19 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
     }
   }
 
-  const handleSubjectChange = (subjectId, checked) => {
-    const currentSubjects = watchedSubjects || []
-    if (checked) {
-      setValue('subject_ids', [...currentSubjects, subjectId])
-    } else {
-      setValue('subject_ids', currentSubjects.filter(s => s !== subjectId))
-    }
+  // Get selected grade names for display
+  const getSelectedGradeNames = () => {
+    return grades
+      .filter(grade => watchedGrades?.includes(grade.id))
+      .map(grade => grade.name)
+  }
+
+  if (dataLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
   return (
@@ -233,28 +264,38 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
           {/* Grades Selection */}
           <div>
             <Label>Grades *</Label>
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 mt-2">
-              {GRADES.map((grade) => (
-                <Toggle
-                  key={grade.value}
-                  pressed={watchedGrades?.includes(grade.value) || false}
-                  onPressedChange={() => handleGradeToggle(grade.value)}
-                  variant="outline"
-                  size="sm"
-                  className="md:h-9 md:px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  {grade.value}
-                </Toggle>
-              ))}
-            </div>
-            {watchedGrades?.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1">
-                {watchedGrades.map((grade) => (
-                  <Badge key={grade} variant="secondary" className="text-xs">
-                    Grade {grade}
-                  </Badge>
-                ))}
+            {grades.length === 0 ? (
+              <div className="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p className="text-sm text-yellow-700">
+                  No grades available. Please configure grades in Settings first.
+                </p>
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mt-2">
+                  {grades.map((grade) => (
+                    <Toggle
+                      key={grade.id}
+                      pressed={watchedGrades?.includes(grade.id) || false}
+                      onPressedChange={() => handleGradeToggle(grade.id)}
+                      variant="outline"
+                      size="sm"
+                      className="md:h-9 md:px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                    >
+                      {grade.name}
+                    </Toggle>
+                  ))}
+                </div>
+                {watchedGrades?.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {getSelectedGradeNames().map((gradeName) => (
+                      <Badge key={gradeName} variant="secondary" className="text-xs">
+                        {gradeName}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
             {errors.grades && (
               <p className="text-sm text-red-600 mt-1">{errors.grades.message}</p>
@@ -264,42 +305,36 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
           {/* Subjects Selection with Toggle Buttons */}
           <div>
             <Label>Subjects *</Label>
-            <div className="space-x-1 space-y-2 gap-2 mt-2">
-              {subjects.map((subject) => (
-                <Toggle
-                  key={subject.id}
-                  pressed={watchedSubjects?.includes(subject.id) || false}
-                  onPressedChange={() => handleSubjectToggle(subject.id)}
-                  variant="outline"
-                  size="sm"
-                  className="md:h-10 px-4 justify-start text-left font-normal data-[state=on]:bg-blue-100 data-[state=on]:text-blue-900 data-[state=on]:border-blue-300 hover:bg-gray-50 rounded-full w-fit"
-                >
-                  {
-                    watchedSubjects?.includes(subject.id) && (<CheckIcon className="size-3" />)
-                  }
-                  {subject.name}
-                </Toggle>
-              ))}
-            </div>
-            {/* {watchedSubjects?.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1">
-                {watchedSubjects.map((subjectId) => {
-                  const subject = subjects.find(s => s.id === subjectId)
-                  return subject ? (
-                    <Badge key={subjectId} variant="secondary" className="text-xs">
-                      {subject.name}
-                    </Badge>
-                  ) : null
-                })}
+            {subjects.length === 0 ? (
+              <div className="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p className="text-sm text-yellow-700">
+                  No subjects available. Please configure subjects in Settings first.
+                </p>
               </div>
-            )} */}
+            ) : (
+              <div className="space-x-1 space-y-2 gap-2 mt-2">
+                {subjects.map((subject) => (
+                  <Toggle
+                    key={subject.id}
+                    pressed={watchedSubjects?.includes(subject.id) || false}
+                    onPressedChange={() => handleSubjectToggle(subject.id)}
+                    variant="outline"
+                    size="sm"
+                    className="md:h-10 px-4 justify-start text-left font-normal data-[state=on]:bg-blue-100 data-[state=on]:text-blue-900 data-[state=on]:border-blue-300 hover:bg-gray-50 rounded-full w-fit"
+                  >
+                    {watchedSubjects?.includes(subject.id) && (<CheckIcon className="size-3" />)}
+                    {subject.name}
+                  </Toggle>
+                ))}
+              </div>
+            )}
             {errors.subject_ids && (
               <p className="text-sm text-red-600 mt-1">{errors.subject_ids.message}</p>
             )}
           </div>
 
           {/* Fee */}
-          <div  className='space-y-1'>
+          <div className='space-y-1'>
             <Label htmlFor="fee">Monthly Fee (Rs.) *</Label>
             <Input
               id="fee"
@@ -330,10 +365,10 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
             </div>
 
             {fields.map((field, index) => (
-              <Card key={field.id} className="mb-4 shadow-non">
+              <Card key={field.id} className="mb-4 shadow-none">
                 <CardContent className="pt-4">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div  className='space-y-1'>
+                    <div className='space-y-1'>
                       <Label htmlFor={`schedules.${index}.day_of_week`}>Day</Label>
                       <Select
                         onValueChange={(value) => setValue(`schedules.${index}.day_of_week`, parseInt(value))}
@@ -408,7 +443,7 @@ export default function ClassForm({ initialData = null, isEditing = false }) {
           <div className="flex gap-4 pt-4">
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || grades.length === 0 || subjects.length === 0}
               className="flex-1"
             >
               {loading ? 'Saving...' : (isEditing ? 'Update Class' : 'Create Class')}
