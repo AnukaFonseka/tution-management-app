@@ -14,6 +14,15 @@ CREATE TABLE public.assignment_submissions (
   CONSTRAINT assignment_submissions_assignment_id_fkey FOREIGN KEY (assignment_id) REFERENCES public.assignments(id),
   CONSTRAINT assignment_submissions_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id)
 );
+CREATE TABLE public.assignment_types (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT assignment_types_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.assignments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   class_id uuid NOT NULL,
@@ -45,10 +54,29 @@ CREATE TABLE public.classes (
   fee numeric NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  grades ARRAY NOT NULL DEFAULT '{}'::integer[] CHECK (grades <@ ARRAY[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]),
   subject_ids ARRAY NOT NULL DEFAULT '{}'::uuid[],
   class_type character varying NOT NULL DEFAULT 'Group'::character varying CHECK (class_type::text = ANY (ARRAY['Individual'::character varying, 'Group'::character varying, 'Extra'::character varying, 'Paper'::character varying, 'Revision'::character varying, 'Theory'::character varying]::text[])),
+  grades ARRAY NOT NULL DEFAULT '{}'::uuid[],
   CONSTRAINT classes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.classes_backup (
+  id uuid,
+  name character varying,
+  fee numeric,
+  created_at timestamp with time zone,
+  updated_at timestamp with time zone,
+  grades ARRAY,
+  subject_ids ARRAY,
+  class_type character varying
+);
+CREATE TABLE public.grades (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL UNIQUE,
+  display_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT grades_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.payments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
