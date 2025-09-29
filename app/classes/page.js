@@ -27,6 +27,21 @@ export default function ClassesPage() {
     try {
       
       const { data: fullData, error: fullError } = await supabase.rpc('get_classes_with_details')
+
+      // Fetch classes with grades (NEW WAY)
+      const { data: classes, error } = await supabase
+        .from('classes')
+        .select(`
+          *,
+          class_grades!inner(
+            grades(id, name, display_order)
+          ),
+          class_subjects!inner(
+            subjects(id, name)
+          ),
+          class_schedules(id, day_of_week, start_time, duration)
+        `)
+        .order('name');
       
       if (fullError) throw fullError;
       

@@ -43,7 +43,12 @@ export default function SchedulePage() {
           classes!inner(
             id,
             name,
-            grades,
+            class_grades!inner(
+              grades(id, name, display_order)
+            ),
+            class_subjects!inner(
+              subjects(id, name)
+            ),
             class_type,
             fee,
             subject_ids,
@@ -71,26 +76,8 @@ export default function SchedulePage() {
       if (error) throw error;
       setPotentialRevenue(data || 0);
 
-      // Get all subject data
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from("subjects")
-        .select("id, name");
-
-      if (subjectsError) throw subjectsError;
-
       // Merge subject data with schedules
-      const schedulesWithSubjects = schedulesData.map((schedule) => ({
-        ...schedule,
-        classes: {
-          ...schedule.classes,
-          subjects:
-            schedule.classes.subject_ids
-              ?.map((subjectId) =>
-                subjectsData.find((subject) => subject.id === subjectId)
-              )
-              .filter(Boolean) || [],
-        },
-      }));
+      const schedulesWithSubjects = schedulesData
 
       setSchedules(schedulesWithSubjects || []);
     } catch (err) {
@@ -168,7 +155,7 @@ export default function SchedulePage() {
             <div>
               <h4 className="font-medium text-blue-900">{classData.name}</h4>
               <div className="flex items-center gap-2 text-xs text-blue-700">
-                <span>{getGradeLabels(classData.grades).join(", ")}</span>
+                <span>{getGradeLabels(classData.class_grades).join(", ")}</span>
                 <Badge variant="secondary" className="text-xs">
                   {classData.class_type}
                 </Badge>
@@ -196,10 +183,10 @@ export default function SchedulePage() {
             </div>
 
             {/* Subject names */}
-            {classData.subjects && classData.subjects.length > 0 && (
+            {classData.class_subjects && classData.class_subjects.length > 0 && (
               <div className="text-xs text-blue-600">
                 <span className="font-medium">Subjects: </span>
-                {classData.subjects.map((subject) => subject.name).join(", ")}
+                {classData.class_subjects.map((subject) => subject.subjects.name).join(", ")}
               </div>
             )}
           </div>
