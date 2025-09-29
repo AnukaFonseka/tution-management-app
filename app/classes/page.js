@@ -20,29 +20,18 @@ export default function ClassesPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchClasses();
+    fetchClassesAndGrades();
   }, []);
 
-  const fetchClasses = async () => {
+  const fetchClassesAndGrades = async () => {
     try {
-      const { data, error } = await supabase
-        .from("classes")
-        .select(
-          `
-          *,
-          student_classes(count),
-          class_schedules (
-            id,
-            day_of_week,
-            start_time,
-            duration
-          )
-        `
-        )
-        .order("grades");
+      
+      const { data: fullData, error: fullError } = await supabase.rpc('get_classes_with_details')
+      
+      if (fullError) throw fullError;
+      
+      setClasses(fullData || []);
 
-      if (error) throw error;
-      setClasses(data || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -95,7 +84,7 @@ export default function ClassesPage() {
         </Link>
       </div>
       <p className="text-gray-600 md:hidden mb-6">
-            Manage your tuition classes and schedules
+        Manage your tuition classes and schedules
       </p>
 
       {error && (
@@ -124,72 +113,76 @@ export default function ClassesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {classes.map((classItem) => (
-            <Card
-              key={classItem.id}
-              className="hover:bg-gray-50 justify-between"
-            >
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{classItem.name}</CardTitle>
-                    <div className="flex flex-wrap gap-1">
-                      {(classItem.grades || []).map((grade) => (
-                        <Badge
-                          key={grade}
-                          variant="outline"
-                          className="text-xs"
-                        >
-                          Grade {grade}
-                        </Badge>
-                      ))}
+          {classes.map((classItem) => {
+            return (
+              <Card
+                key={classItem.id}
+                className="hover:bg-gray-50 justify-between"
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{classItem.name}</CardTitle>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {classItem.grade_names.length > 0 ? (
+                          classItem.grade_names.map((gradeName, index) => (
+                            <Badge
+                              key={`${classItem.id}-grade-${index}`}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              Grade {gradeName}
+                            </Badge>
+                          ))
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-gray-500">
+                            No grades assigned
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant="outline">Rs. {classItem.fee}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      <div className="flex flex-col">
+                        {renderClassSchedules(classItem.class_schedules)}
+                      </div>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Users className="w-4 h-4 mr-2" />
+                      {classItem.student_count || 0} students
+                      enrolled
                     </div>
                   </div>
-                  <Badge variant="outline">Rs. {classItem.fee}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    <div className="flex flex-col">
-                      {renderClassSchedules(classItem.class_schedules)}
-                    </div>
-                  </div>
-                  {/* <div className="flex items-center text-sm text-gray-600">
-                    <Clock className="w-4 h-4 mr-2" />
-                    {formatTime(classItem.start_time)} ({formatDuration(classItem.duration)})
-                  </div> */}
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Users className="w-4 h-4 mr-2" />
-                    {classItem.student_classes?.[0]?.count || 0} students
-                    enrolled
-                  </div>
-                </div>
 
-                <div className="flex gap-2">
-                  <Link href={`/classes/${classItem.id}`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full">
-                      View Details
+                  <div className="flex gap-2">
+                    <Link href={`/classes/${classItem.id}`} className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full">
+                        View Details
+                      </Button>
+                    </Link>
+                    <Link href={`/classes/${classItem.id}/edit`}>
+                      <Button variant="outline" size="sm">
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteClass(classItem.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </Button>
-                  </Link>
-                  <Link href={`/classes/${classItem.id}/edit`}>
-                    <Button variant="outline" size="sm">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteClass(classItem.id)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
